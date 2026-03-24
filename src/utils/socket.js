@@ -12,13 +12,8 @@ const getDefaultSocketUrl = () => {
     return process.env.REACT_APP_API_URL.replace(/\/api\/?$/, '');
   }
 
-  // 3) In local development, use local backend.
-  if (window.location.hostname === 'localhost') {
-    return 'http://localhost:5000';
-  }
-
-  // 4) Default to same-origin backend for deployed apps.
-  return window.location.origin;
+  // 3) Default to known deployed backend when env var is not set.
+  return 'https://amctag-whats.38f0fz.easypanel.host';
 };
 
 export const getSocket = () => {

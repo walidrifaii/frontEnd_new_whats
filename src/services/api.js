@@ -12,17 +12,12 @@ const getApiBase = () => {
     return normalizeApiBase(process.env.REACT_APP_API_URL);
   }
 
-  // 2) Local development.
-  if (window.location.hostname === 'localhost') {
-    return 'http://localhost:5000/api';
-  }
-
-  // 3) Default to same-origin backend for deployed apps behind one domain/reverse-proxy.
-  return normalizeApiBase(window.location.origin);
+  // 2) Default to known deployed backend when env var is not set.
+  return 'https://amctag-whats.38f0fz.easypanel.host/api';
 };
 
 const API_BASE = getApiBase();
-const FALLBACK_API_BASE = 'https://api-whats-2-r6be.onrender.com/api';
+const FALLBACK_API_BASE = 'https://amctag-whats.38f0fz.easypanel.host/api';
 
 const api = axios.create({
   baseURL: API_BASE,
