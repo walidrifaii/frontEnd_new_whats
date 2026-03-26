@@ -38,12 +38,32 @@ export default function DashboardPage() {
   const connected = data.clients.filter(c => c.status === 'connected').length;
   const running = data.campaigns.filter(c => c.status === 'running').length;
 
+  const balance = user?.messageBalance ?? 0;
+
   return (
     <div>
       <h2 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Welcome, {user?.name} 👋</h2>
       <p style={{ color: '#666', marginBottom: 28 }}>Here's your WhatsApp marketing overview</p>
 
+      {balance <= 0 && (
+        <div style={{
+          background: '#ff3b30', color: '#fff', padding: '14px 20px', borderRadius: 10,
+          marginBottom: 20, fontWeight: 600, fontSize: 15
+        }}>
+          ⚠️ Your message balance is 0. You cannot send messages. Please contact admin to charge your balance.
+        </div>
+      )}
+      {balance > 0 && balance <= 20 && (
+        <div style={{
+          background: '#ff950022', color: '#ff9500', padding: '14px 20px', borderRadius: 10,
+          marginBottom: 20, fontWeight: 600, fontSize: 14, border: '1px solid #ff9500'
+        }}>
+          ⚠️ Low balance warning: You have only {balance} messages remaining.
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
+        <StatCard label="Message Balance" value={balance} color={balance > 50 ? '#34c759' : balance > 10 ? '#ff9500' : '#ff3b30'} icon="💰" />
         <StatCard label="WhatsApp Clients" value={data.clients.length} color="#25d366" icon="📱" />
         <StatCard label="Connected" value={connected} color="#128c7e" icon="🟢" />
         <StatCard label="Campaigns" value={data.campaigns.length} color="#5856d6" icon="📣" />

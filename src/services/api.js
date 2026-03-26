@@ -13,11 +13,11 @@ const getApiBase = () => {
   }
 
   // 2) Default to known deployed backend when env var is not set.
-  return 'https://amctag-whats.38f0fz.easypanel.host/api';
+  return 'http://localhost:5000/api';
 };
 
 const API_BASE = getApiBase();
-const FALLBACK_API_BASE = 'https://amctag-whats.38f0fz.easypanel.host/api';
+const FALLBACK_API_BASE = 'http://localhost:5000/api';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -52,7 +52,8 @@ api.interceptors.response.use(
 
     if (err.response?.status === 401) {
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      const onAdminArea = window.location.pathname.startsWith('/admin');
+      window.location.href = onAdminArea ? '/admin-login' : '/login';
     }
     return Promise.reject(err);
   }
@@ -60,6 +61,7 @@ api.interceptors.response.use(
 
 // Auth
 export const login = (email, password) => api.post('/auth/login', { email, password });
+export const adminLogin = (email, password) => api.post('/auth/admin-login', { email, password });
 export const register = (name, email, password) => api.post('/auth/register', { name, email, password });
 export const getMe = () => api.get('/auth/me');
 
@@ -98,5 +100,13 @@ export const getLogStats = (params) => api.get('/logs/stats', { params });
 // Messages
 export const sendMessage = (clientId, phone, message) =>
   api.post('/messages/send', { clientId, phone, message });
+
+// Admin
+export const getAdminUsers = () => api.get('/admin/users');
+export const getAdminUser = (id) => api.get(`/admin/users/${id}`);
+export const updateUserBalance = (id, balance) => api.patch(`/admin/users/${id}/balance`, { balance });
+export const addUserBalance = (id, amount) => api.post(`/admin/users/${id}/add-balance`, { amount });
+export const toggleUserActive = (id) => api.patch(`/admin/users/${id}/toggle-active`);
+export const getAdminStats = () => api.get('/admin/stats');
 
 export default api;

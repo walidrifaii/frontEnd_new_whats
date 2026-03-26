@@ -58,6 +58,12 @@ export default function CampaignDetailPage() {
       setCampaign(prev => prev ? { ...prev, status: 'completed' } : prev);
       toast.success('🎉 Campaign completed!');
       loadContacts(1);
+    },
+    'campaign-balance-exhausted': ({ campaignId, message }) => {
+      if (campaignId !== id) return;
+      setCampaign(prev => prev ? { ...prev, status: 'paused' } : prev);
+      toast.error(message || 'You need to charge balance in message.');
+      loadContacts(1);
     }
   });
 
@@ -85,7 +91,11 @@ export default function CampaignDetailPage() {
       setCampaign(prev => prev ? { ...prev, status: 'running' } : prev);
       toast.success('Campaign started!');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to start');
+      if (err.response?.data?.balanceExhausted) {
+        toast.error('You need to charge balance in message.');
+      } else {
+        toast.error(err.response?.data?.error || 'Failed to start');
+      }
     } finally {
       setActionLoading(false);
     }

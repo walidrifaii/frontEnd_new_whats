@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { login } from '../services/api';
+import { adminLogin } from '../services/api';
 import useAuthStore from '../store/authStore';
 
-export default function LoginPage() {
+export default function AdminLoginPage() {
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
   const [form, setForm] = useState({ email: '', password: '' });
@@ -14,11 +14,11 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { data } = await login(form.email, form.password);
+      const { data } = await adminLogin(form.email, form.password);
       setAuth(data.token, data.user);
-      navigate('/');
+      navigate('/admin');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Login failed');
+      toast.error(err.response?.data?.error || 'Admin login failed');
     } finally {
       setLoading(false);
     }
@@ -27,39 +27,46 @@ export default function LoginPage() {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'linear-gradient(135deg, #0d0d1f 0%, #1a1a3e 100%)'
+      background: 'linear-gradient(135deg, #1b0d0d 0%, #3e1a1a 100%)'
     }}>
       <div style={{
         background: '#fff', padding: 40, borderRadius: 12, width: 380,
         boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
       }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 48 }}>💬</div>
-          <h2 style={{ margin: '8px 0 4px', color: '#1a1a2e' }}>WA Marketing SaaS</h2>
-          <p style={{ color: '#666', margin: 0, fontSize: 14 }}>Sign in to your account</p>
+          <div style={{ fontSize: 48 }}>🛡️</div>
+          <h2 style={{ margin: '8px 0 4px', color: '#1a1a2e' }}>Admin Panel Login</h2>
+          <p style={{ color: '#666', margin: 0, fontSize: 14 }}>Sign in as administrator</p>
         </div>
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Email</label>
-            <input type="email" required style={inputStyle}
-              value={form.email} placeholder="you@example.com"
-              onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
+            <label style={labelStyle}>Admin Email</label>
+            <input
+              type="email"
+              required
+              style={inputStyle}
+              value={form.email}
+              placeholder="admin@example.com"
+              onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+            />
           </div>
           <div style={{ marginBottom: 24 }}>
             <label style={labelStyle}>Password</label>
-            <input type="password" required style={inputStyle}
-              value={form.password} placeholder="••••••••"
-              onChange={e => setForm(p => ({ ...p, password: e.target.value }))} />
+            <input
+              type="password"
+              required
+              style={inputStyle}
+              value={form.password}
+              placeholder="••••••••"
+              onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+            />
           </div>
           <button type="submit" disabled={loading} style={btnStyle}>
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing in...' : 'Admin Sign In'}
           </button>
         </form>
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 14, color: '#666' }}>
-          Don't have an account? <Link to="/register" style={{ color: '#25d366' }}>Register</Link>
-        </p>
-        <p style={{ textAlign: 'center', marginTop: 8, fontSize: 13, color: '#888' }}>
-          Admin account? <Link to="/admin-login" style={{ color: '#ff9500' }}>Admin Login</Link>
+          User account? <Link to="/login" style={{ color: '#25d366' }}>Go to User Login</Link>
         </p>
       </div>
     </div>
@@ -72,6 +79,7 @@ const inputStyle = {
   fontSize: 14, boxSizing: 'border-box', outline: 'none'
 };
 const btnStyle = {
-  width: '100%', padding: '12px', background: '#25d366', color: '#fff',
+  width: '100%', padding: '12px', background: '#ff9500', color: '#fff',
   border: 'none', borderRadius: 6, fontSize: 15, fontWeight: 600, cursor: 'pointer'
 };
+
