@@ -13,11 +13,11 @@ const getApiBase = () => {
   }
 
   // 2) Default to known deployed backend when env var is not set.
-  return 'https://amctag-whats.38f0fz.easypanel.host/api';
+  return 'http://localhost:5000/api';
 };
 
 const API_BASE = getApiBase();
-const FALLBACK_API_BASE = 'https://amctag-whats.38f0fz.easypanel.host/api';
+const FALLBACK_API_BASE = 'http://localhost:5000/api';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -70,6 +70,7 @@ export const connectClient = (id) => api.post(`/clients/${id}/connect`);
 export const disconnectClient = (id) => api.post(`/clients/${id}/disconnect`);
 export const deleteClient = (id) => api.delete(`/clients/${id}`);
 export const getClient = (id) => api.get(`/clients/${id}`);
+export const getClientQrShareLink = (id) => api.get(`/clients/${id}/qr-share-link`);
 
 // Campaigns
 export const getCampaigns = () => api.get('/campaigns');
