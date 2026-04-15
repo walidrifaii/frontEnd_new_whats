@@ -13,11 +13,13 @@ const getApiBase = () => {
   }
 
   // 2) Default to known deployed backend when env var is not set.
-  return 'http://163.245.221.162:5000/api';
+  return 'https//pedicure-maturing-citadel.ngrok-free.dev
+/api';
 };
 
 const API_BASE = getApiBase();
-const FALLBACK_API_BASE = 'http://163.245.221.162:5000/api';
+const FALLBACK_API_BASE = 'https//pedicure-maturing-citadel.ngrok-free.dev
+/api';
 
 const api = axios.create({
   baseURL: API_BASE,
