@@ -13,8 +13,7 @@ const getDefaultSocketUrl = () => {
   }
 
   // 3) Default to known deployed backend when env var is not set.
-  return 'https//pedicure-maturing-citadel.ngrok-free.dev
-';
+  return 'https://pedicure-maturing-citadel.ngrok-free.dev';
 };
 
 export const getSocket = () => {
