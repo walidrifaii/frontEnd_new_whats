@@ -13,7 +13,7 @@ const getDefaultSocketUrl = () => {
   }
 
   // 3) Default to known deployed backend when env var is not set.
-  return 'https://pedicure-maturing-citadel.ngrok-free.dev';
+  return 'https://amctag-whats.38f0fz.easypanel.host';
 };
 
 export const getSocket = () => {
