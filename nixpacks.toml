@@ -1,0 +1,18 @@
+providers = ["node"]
+
+[variables]
+CI = "false"
+NIXPACKS_NODE_VERSION = "18"
+GENERATE_SOURCEMAP = "false"
+
+[phases.setup]
+nixPkgs = ["nodejs_18"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["node ./node_modules/react-scripts/bin/react-scripts.js build"]
+
+[start]
+cmd = "npx serve -s build -l tcp://0.0.0.0:$PORT"

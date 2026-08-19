@@ -16,10 +16,13 @@
     "serve": "^14.2.1"
   },
   "scripts": {
-    "start": "npx serve -s build",
-    "build": "react-scripts build",
+    "start": "serve -s build -l 3000",
+    "build": "node ./node_modules/react-scripts/bin/react-scripts.js build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
+  },
+  "engines": {
+    "node": "18.x"
   },
   "browserslist": {
     "production": [">0.2%", "not dead", "not op_mini all"],
