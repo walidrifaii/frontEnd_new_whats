@@ -14,12 +14,10 @@ export default function Layout() {
 
   const navItems = isServiceAccount
     ? [
-        { to: '/stats', label: '📈 My Stats', end: true },
-        { to: '/logs', label: '📋 Message Logs' }
+        { to: '/stats', label: '📈 My Stats', end: true }
       ]
     : [
         { to: '/', label: '📊 Dashboard', end: true },
-        { to: '/stats', label: '📈 My Stats' },
         { to: '/clients', label: '📱 WhatsApp Clients' },
         { to: '/campaigns', label: '📣 Campaigns' },
         { to: '/logs', label: '📋 Message Logs' }

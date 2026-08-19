@@ -14,12 +14,24 @@ import LogsPage from './pages/LogsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import StatsPage from './pages/StatsPage';
+import StatsLoginPage from './pages/StatsLoginPage';
 import Layout from './components/Layout';
+import StatsLayout from './components/StatsLayout';
 
 const ProtectedRoute = ({ children }) => {
   const { token, loading } = useAuthStore();
   if (loading) return <div className="loading-screen">Loading...</div>;
   return token ? children : <Navigate to="/login" replace />;
+};
+
+const StatsProtectedRoute = ({ children }) => {
+  const { token, user, loading } = useAuthStore();
+  if (loading) return <div className="loading-screen">Loading...</div>;
+  if (!token) return <Navigate to="/stats-login" replace />;
+  if (user && !(user.isServiceAccount || user.parentUserId)) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
 };
 
 const AdminRoute = ({ children }) => {
@@ -53,9 +65,12 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin-login" element={<AdminLoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/stats-login" element={<StatsLoginPage />} />
+        <Route path="/stats" element={<StatsProtectedRoute><StatsLayout /></StatsProtectedRoute>}>
+          <Route index element={<StatsPage />} />
+        </Route>
         <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<HomeRoute />} />
-          <Route path="stats" element={<StatsPage />} />
           <Route path="clients" element={<ClientsPage />} />
           <Route path="campaigns" element={<CampaignPage />} />
           <Route path="campaigns/:id" element={<CampaignDetailPage />} />

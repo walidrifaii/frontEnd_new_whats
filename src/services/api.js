@@ -52,8 +52,14 @@ api.interceptors.response.use(
 
     if (err.response?.status === 401) {
       localStorage.removeItem('token');
-      const onAdminArea = window.location.pathname.startsWith('/admin');
-      window.location.href = onAdminArea ? '/admin-login' : '/login';
+      const path = window.location.pathname;
+      if (path.startsWith('/admin')) {
+        window.location.href = '/admin-login';
+      } else if (path.startsWith('/stats')) {
+        window.location.href = '/stats-login';
+      } else {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(err);
   }
@@ -61,6 +67,9 @@ api.interceptors.response.use(
 
 // Auth
 export const login = (email, password) => api.post('/auth/login', { email, password });
+export const statsLogin = (email, password) => api.post('/auth/stats-login', { email, password });
+export const getServiceAccounts = () => api.get('/auth/service-accounts');
+export const createOwnerServiceAccount = (data) => api.post('/auth/service-accounts', data);
 export const adminLogin = (email, password) => api.post('/auth/admin-login', { email, password });
 export const register = (name, email, password) => api.post('/auth/register', { name, email, password });
 export const getMe = () => api.get('/auth/me');

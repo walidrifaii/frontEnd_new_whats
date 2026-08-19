@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getClients, getCampaigns, getLogStats } from '../services/api';
 import useAuthStore from '../store/authStore';
+import ServiceAccountsPanel from '../components/ServiceAccountsPanel';
 
 const StatCard = ({ label, value, color, icon }) => (
   <div style={{
@@ -110,6 +111,8 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      <ServiceAccountsPanel />
     </div>
   );
 }

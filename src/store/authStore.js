@@ -25,9 +25,14 @@ const useAuthStore = create((set) => ({
     try {
       const { data } = await getMe();
       set({ user: data.user, loading: false });
-    } catch {
-      localStorage.removeItem('token');
-      set({ token: null, user: null, loading: false });
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 401) {
+        localStorage.removeItem('token');
+        set({ token: null, user: null, loading: false });
+        return;
+      }
+      set({ loading: false });
     }
   }
 }));
