@@ -16,7 +16,7 @@ export default function LoginPage() {
     try {
       const { data } = await login(form.email, form.password);
       setAuth(data.token, data.user);
-      navigate('/');
+      navigate(data.user?.isServiceAccount || data.user?.parentUserId ? '/stats' : '/');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Login failed');
     } finally {

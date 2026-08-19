@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { getAdminUsers, updateUserBalance, addUserBalance, toggleUserActive } from '../services/api';
+import { getAdminUsers, updateUserBalance, addUserBalance, toggleUserActive, createServiceAccount } from '../services/api';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
@@ -9,6 +9,14 @@ export default function AdminUsersPage() {
   const [balanceInput, setBalanceInput] = useState('');
   const [balanceMode, setBalanceMode] = useState('set');
   const [search, setSearch] = useState('');
+  const [serviceModal, setServiceModal] = useState(null);
+  const [serviceForm, setServiceForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    source: 'ehkini',
+    messageBalance: '0'
+  });
 
   const loadUsers = useCallback(async () => {
     try {
@@ -55,6 +63,30 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleCreateService = async () => {
+    if (!serviceModal) return;
+    const source = String(serviceForm.source || '').trim().toLowerCase();
+    if (!serviceForm.name || !serviceForm.email || !serviceForm.password || !source) {
+      toast.error('Name, email, password, and source are required');
+      return;
+    }
+    try {
+      await createServiceAccount(serviceModal._id, {
+        name: serviceForm.name,
+        email: serviceForm.email,
+        password: serviceForm.password,
+        source,
+        messageBalance: parseInt(serviceForm.messageBalance, 10) || 0
+      });
+      toast.success(`Created ${source} login`);
+      setServiceModal(null);
+      setServiceForm({ name: '', email: '', password: '', source: 'ehkini', messageBalance: '0' });
+      loadUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to create service login');
+    }
+  };
+
   const filtered = users.filter(u =>
     u.name?.toLowerCase().includes(search.toLowerCase()) ||
     u.email?.toLowerCase().includes(search.toLowerCase())
@@ -98,6 +130,14 @@ export default function AdminUsersPage() {
                 <td style={tdStyle}>
                   <div style={{ fontWeight: 600 }}>{user.name}</div>
                   <div style={{ fontSize: 12, color: '#888' }}>{user.email}</div>
+                  {user.source ? (
+                    <div style={{ fontSize: 12, color: '#25d366', marginTop: 4 }}>
+                      source: {user.source}
+                    </div>
+                  ) : null}
+                  {user.parentUserId ? (
+                    <div style={{ fontSize: 11, color: '#999' }}>Shares owner WhatsApp</div>
+                  ) : null}
                 </td>
                 <td style={tdStyle}>
                   <span style={{
@@ -107,6 +147,9 @@ export default function AdminUsersPage() {
                   }}>
                     {user.role}
                   </span>
+                  {user.isServiceAccount || user.parentUserId ? (
+                    <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>service login</div>
+                  ) : null}
                 </td>
                 <td style={tdStyle}>
                   <span style={{
@@ -144,6 +187,21 @@ export default function AdminUsersPage() {
                       onClick={() => handleToggleActive(user._id)}
                       style={btnStyle(user.isActive ? '#ff3b30' : '#34c759')}
                     >{user.isActive ? 'Disable' : 'Enable'}</button>
+                    {!user.parentUserId && user.role !== 'admin' ? (
+                      <button
+                        onClick={() => {
+                          setServiceModal(user);
+                          setServiceForm({
+                            name: '',
+                            email: '',
+                            password: '',
+                            source: 'ehkini',
+                            messageBalance: '0'
+                          });
+                        }}
+                        style={btnStyle('#007aff')}
+                      >+ Service login</button>
+                    ) : null}
                   </div>
                 </td>
               </tr>
@@ -241,6 +299,114 @@ export default function AdminUsersPage() {
                   color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600
                 }}>
                 {balanceMode === 'set' ? 'Set Balance' : 'Add Balance'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {serviceModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 12, padding: 32, minWidth: 420, maxWidth: '90vw',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)'
+          }}>
+            <h3 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Add service login</h3>
+            <p style={{ color: '#666', fontSize: 14, margin: '0 0 20px' }}>
+              For <strong>{serviceModal.name}</strong>. ehkini and solv each get their own email/password,
+              share this WhatsApp, and only see their source on /stats.
+            </p>
+            <div style={{ display: 'grid', gap: 12 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>
+                Source
+                <input
+                  placeholder="ehkini or solv"
+                  value={serviceForm.source}
+                  onChange={(e) => setServiceForm((p) => ({ ...p, source: e.target.value }))}
+                  style={{
+                    display: 'block', width: '100%', marginTop: 6, padding: '10px 12px',
+                    borderRadius: 8, border: '1px solid #ddd', fontSize: 14, boxSizing: 'border-box'
+                  }}
+                />
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {['ehkini', 'solv'].map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setServiceForm((p) => ({ ...p, source: name }))}
+                    style={{
+                      padding: '6px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13,
+                      border: '1px solid #ddd',
+                      background: serviceForm.source === name ? '#25d366' : '#fff',
+                      color: serviceForm.source === name ? '#fff' : '#333'
+                    }}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+              <input
+                placeholder="Display name"
+                value={serviceForm.name}
+                onChange={(e) => setServiceForm((p) => ({ ...p, name: e.target.value }))}
+                style={{
+                  width: '100%', padding: '10px 12px', borderRadius: 8,
+                  border: '1px solid #ddd', fontSize: 14, boxSizing: 'border-box'
+                }}
+              />
+              <input
+                type="email"
+                placeholder="Login email"
+                value={serviceForm.email}
+                onChange={(e) => setServiceForm((p) => ({ ...p, email: e.target.value }))}
+                style={{
+                  width: '100%', padding: '10px 12px', borderRadius: 8,
+                  border: '1px solid #ddd', fontSize: 14, boxSizing: 'border-box'
+                }}
+              />
+              <input
+                type="password"
+                placeholder="Password (min 6 characters)"
+                value={serviceForm.password}
+                onChange={(e) => setServiceForm((p) => ({ ...p, password: e.target.value }))}
+                style={{
+                  width: '100%', padding: '10px 12px', borderRadius: 8,
+                  border: '1px solid #ddd', fontSize: 14, boxSizing: 'border-box'
+                }}
+              />
+              <input
+                type="number"
+                min="0"
+                placeholder="Starting message balance"
+                value={serviceForm.messageBalance}
+                onChange={(e) => setServiceForm((p) => ({ ...p, messageBalance: e.target.value }))}
+                style={{
+                  width: '100%', padding: '10px 12px', borderRadius: 8,
+                  border: '1px solid #ddd', fontSize: 14, boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
+              <button
+                type="button"
+                onClick={() => setServiceModal(null)}
+                style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontSize: 14 }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateService}
+                style={{
+                  padding: '10px 24px', borderRadius: 8, border: 'none',
+                  background: '#007aff', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600
+                }}
+              >
+                Create login
               </button>
             </div>
           </div>

@@ -1,14 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { getLogs, getLogStats, getClients } from '../services/api';
+import useAuthStore from '../store/authStore';
 
 export default function LogsPage() {
+  const { user } = useAuthStore();
+  const lockedSource = user?.source || '';
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
   const [clients, setClients] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ clientId: '', direction: '', status: '' });
+  const [filters, setFilters] = useState({ clientId: '', direction: '', status: '', source: '' });
 
   const load = useCallback(async (p = 1) => {
     setLoading(true);
@@ -27,6 +30,12 @@ export default function LogsPage() {
   useEffect(() => {
     getClients().then(({ data }) => setClients(data.clients));
   }, []);
+
+  useEffect(() => {
+    if (lockedSource) {
+      setFilters((prev) => (prev.source === lockedSource ? prev : { ...prev, source: lockedSource }));
+    }
+  }, [lockedSource]);
 
   useEffect(() => { load(1); }, [load]);
 
@@ -74,6 +83,22 @@ export default function LogsPage() {
           <option value="failed">Failed</option>
           <option value="received">Received</option>
         </select>
+        <select
+          style={selStyle}
+          value={filters.source}
+          disabled={Boolean(lockedSource)}
+          onChange={e => setFilters(p => ({ ...p, source: e.target.value }))}
+        >
+          {lockedSource ? (
+            <option value={lockedSource}>{lockedSource}</option>
+          ) : (
+            <>
+              <option value="">All Sources</option>
+              <option value="ehkini">ehkini</option>
+              <option value="solv">solv</option>
+            </>
+          )}
+        </select>
       </div>
 
       {/* Logs table */}
@@ -82,7 +107,7 @@ export default function LogsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#f8f8f8', borderBottom: '1px solid #e8e8e8' }}>
-                {['Time', 'Client', 'Phone', 'Direction', 'Status', 'Message'].map(h => (
+                {['Time', 'Client', 'Phone', 'Source', 'Direction', 'Status', 'Message'].map(h => (
                   <th key={h} style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 600, color: '#555' }}>{h}</th>
                 ))}
               </tr>
@@ -95,6 +120,7 @@ export default function LogsPage() {
                   </td>
                   <td style={{ padding: '10px 14px' }}>{log.clientId?.name || '—'}</td>
                   <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontSize: 12 }}>{log.phone}</td>
+                  <td style={{ padding: '10px 14px' }}>{log.source || '—'}</td>
                   <td style={{ padding: '10px 14px' }}>
                     <span style={{ fontSize: 16 }}>{log.direction === 'incoming' ? '📨' : '📤'}</span>
                   </td>
@@ -112,7 +138,7 @@ export default function LogsPage() {
               ))}
               {logs.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ padding: 40, textAlign: 'center', color: '#999' }}>No logs found</td>
+                  <td colSpan={7} style={{ padding: 40, textAlign: 'center', color: '#999' }}>No logs found</td>
                 </tr>
               )}
             </tbody>

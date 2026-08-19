@@ -108,5 +108,7 @@ export const updateUserBalance = (id, balance) => api.patch(`/admin/users/${id}/
 export const addUserBalance = (id, amount) => api.post(`/admin/users/${id}/add-balance`, { amount });
 export const toggleUserActive = (id) => api.patch(`/admin/users/${id}/toggle-active`);
 export const getAdminStats = () => api.get('/admin/stats');
+export const createServiceAccount = (parentId, data) =>
+  api.post(`/admin/users/${parentId}/service-accounts`, data);
 
 export default api;

@@ -13,6 +13,7 @@ import CampaignDetailPage from './pages/CampaignDetailPage';
 import LogsPage from './pages/LogsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import StatsPage from './pages/StatsPage';
 import Layout from './components/Layout';
 
 const ProtectedRoute = ({ children }) => {
@@ -34,6 +35,9 @@ const HomeRoute = () => {
   if (user?.isAdmin || user?.role === 'admin') {
     return <Navigate to="/admin" replace />;
   }
+  if (user?.isServiceAccount || user?.parentUserId) {
+    return <Navigate to="/stats" replace />;
+  }
   return <DashboardPage />;
 };
 
@@ -51,6 +55,7 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<HomeRoute />} />
+          <Route path="stats" element={<StatsPage />} />
           <Route path="clients" element={<ClientsPage />} />
           <Route path="campaigns" element={<CampaignPage />} />
           <Route path="campaigns/:id" element={<CampaignDetailPage />} />

@@ -10,13 +10,20 @@ export default function Layout() {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   const isAdmin = user?.isAdmin || user?.role === 'admin';
+  const isServiceAccount = Boolean(user?.isServiceAccount || user?.parentUserId);
 
-  const navItems = [
-    { to: '/', label: '📊 Dashboard', end: true },
-    { to: '/clients', label: '📱 WhatsApp Clients' },
-    { to: '/campaigns', label: '📣 Campaigns' },
-    { to: '/logs', label: '📋 Message Logs' }
-  ];
+  const navItems = isServiceAccount
+    ? [
+        { to: '/stats', label: '📈 My Stats', end: true },
+        { to: '/logs', label: '📋 Message Logs' }
+      ]
+    : [
+        { to: '/', label: '📊 Dashboard', end: true },
+        { to: '/stats', label: '📈 My Stats' },
+        { to: '/clients', label: '📱 WhatsApp Clients' },
+        { to: '/campaigns', label: '📣 Campaigns' },
+        { to: '/logs', label: '📋 Message Logs' }
+      ];
 
   const adminItems = [
     { to: '/admin', label: '🛡️ Admin Dashboard', end: true },
@@ -74,6 +81,11 @@ export default function Layout() {
                 fontSize: 12, marginBottom: 8, fontWeight: 600
               }}>
                 Balance: {user?.messageBalance ?? 0} messages
+              </div>
+            )}
+            {!isAdmin && user?.source && (
+              <div style={{ color: '#25d366', fontSize: 11, marginBottom: 8 }}>
+                Service: {user.source}
               </div>
             )}
             {isAdmin && (
