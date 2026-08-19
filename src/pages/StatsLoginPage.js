@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { statsLogin } from '../services/api';
 import useAuthStore from '../store/authStore';
@@ -93,6 +93,10 @@ export default function StatsLoginPage() {
             {loading ? 'Signing in...' : 'Open stats dashboard'}
           </button>
         </form>
+        <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#666', lineHeight: 1.5 }}>
+          Owner WhatsApp accounts cannot sign in here.
+          Use the old login: <Link to="/login" style={{ color: '#16a34a' }}>/login</Link>
+        </p>
       </div>
     </div>
   );

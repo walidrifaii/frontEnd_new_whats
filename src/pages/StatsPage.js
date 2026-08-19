@@ -69,14 +69,9 @@ export default function StatsPage() {
 
   return (
     <div>
-      <h2 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>
+      <h2 style={{ margin: '0 0 24px', color: '#1a1a2e' }}>
         {lockedSource ? `${lockedSource} message stats` : 'My message stats'}
       </h2>
-      <p style={{ color: '#666', marginBottom: 16 }}>
-        {lockedSource
-          ? `This login only sees ${lockedSource} messages on the shared WhatsApp number.`
-          : 'These numbers belong to this login. Filter by source to split ehkini and solv.'}
-      </p>
 
       {!lockedSource ? (
         <div style={{ marginBottom: 24 }}>
@@ -110,21 +105,6 @@ export default function StatsPage() {
           fontSize: 15
         }}>
           Your remaining balance is 0. You cannot send more messages until an admin charges this account.
-        </div>
-      ) : null}
-
-      {balance > 0 && balance <= 20 ? (
-        <div style={{
-          background: '#ff950022',
-          color: '#ff9500',
-          padding: '14px 20px',
-          borderRadius: 10,
-          marginBottom: 20,
-          fontWeight: 600,
-          fontSize: 14,
-          border: '1px solid #ff9500'
-        }}>
-          Low balance: {balance} messages remaining on this account.
         </div>
       ) : null}
 
