@@ -4,46 +4,34 @@ import { toast } from 'react-toastify';
 import {
   getAdminUsers,
   getAdminPhoneNumbers,
-  createAdminPhoneNumber,
+  addAdminUserSource,
+  createAdminUserClient,
   connectAdminClient,
   getAdminClientQrShareLink
 } from '../services/api';
 
-const emptyUserForm = {
-  name: '',
-  email: '',
-  password: '',
-  clientName: '',
-  phone: ''
-};
-
-const emptyAddForm = {
-  userId: '',
-  clientName: '',
-  phone: ''
-};
+const emptySourceForm = { userId: '', source: '' };
 
 export default function AdminPhoneNumbersPage() {
-  const [clients, setClients] = useState([]);
   const [owners, setOwners] = useState([]);
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [userForm, setUserForm] = useState(emptyUserForm);
-  const [addForm, setAddForm] = useState(emptyAddForm);
-  const [creatingUser, setCreatingUser] = useState(false);
-  const [addingNumber, setAddingNumber] = useState(false);
+  const [sourceForm, setSourceForm] = useState(emptySourceForm);
+  const [addingSource, setAddingSource] = useState(false);
+  const [inlineSource, setInlineSource] = useState({});
   const [busyId, setBusyId] = useState('');
   const [qr, setQr] = useState(null);
 
   const load = useCallback(async () => {
-    const [{ data: phoneData }, { data: userData }] = await Promise.all([
-      getAdminPhoneNumbers(),
-      getAdminUsers()
+    const [{ data: userData }, { data: phoneData }] = await Promise.all([
+      getAdminUsers(),
+      getAdminPhoneNumbers()
     ]);
-    setClients(phoneData.clients || []);
     setOwners((userData.users || []).filter((user) => (
       user.role !== 'admin' && !user.parentUserId && !user.isServiceAccount
     )));
+    setClients(phoneData.clients || []);
     return phoneData.clients || [];
   }, []);
 
@@ -69,67 +57,94 @@ export default function AdminPhoneNumbersPage() {
     return () => clearInterval(timer);
   }, [clients, load]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter((client) => (
-      client.name?.toLowerCase().includes(q) ||
-      client.phone?.toLowerCase().includes(q) ||
-      client.ownerName?.toLowerCase().includes(q) ||
-      client.ownerEmail?.toLowerCase().includes(q) ||
-      client._id?.toLowerCase().includes(q)
-    ));
-  }, [clients, search]);
+  const clientsByOwner = useMemo(() => {
+    const map = {};
+    clients.forEach((client) => {
+      const key = client.userId;
+      if (!map[key]) map[key] = [];
+      map[key].push(client);
+    });
+    return map;
+  }, [clients]);
 
-  const handleCreateUser = async (event) => {
+  const filteredOwners = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return owners;
+    return owners.filter((owner) => {
+      const ownerClients = clientsByOwner[owner._id] || [];
+      return (
+        owner.name?.toLowerCase().includes(q) ||
+        owner.email?.toLowerCase().includes(q) ||
+        (owner.enabledSources || []).some((source) => source.toLowerCase().includes(q)) ||
+        ownerClients.some((client) => (
+          client.name?.toLowerCase().includes(q) ||
+          client.phone?.toLowerCase().includes(q)
+        ))
+      );
+    });
+  }, [owners, search, clientsByOwner]);
+
+  const addSource = async (userId, source) => {
+    const name = String(source || '').trim().toLowerCase();
+    if (!userId) {
+      toast.error('Select a main service');
+      return false;
+    }
+    if (!name) {
+      toast.error('Source name is required');
+      return false;
+    }
+    const { data } = await addAdminUserSource(userId, name);
+    toast.success(data.message || `Source ${name} assigned`);
+    await load();
+    return true;
+  };
+
+  const handleAddSource = async (event) => {
     event.preventDefault();
-    if (!userForm.name.trim() || !userForm.email.trim() || userForm.password.length < 6) {
-      toast.error('Name, email, and a password of at least 6 characters are required');
-      return;
-    }
-    if (!userForm.clientName.trim()) {
-      toast.error('Phone / client name is required');
-      return;
-    }
-    setCreatingUser(true);
+    setAddingSource(true);
     try {
-      const { data } = await createAdminPhoneNumber(userForm);
-      toast.success(data.message || 'User and phone number created');
-      setUserForm(emptyUserForm);
-      await load();
-      if (data.qrShare?.pageUrl) {
-        window.open(data.qrShare.pageUrl, '_blank', 'noopener,noreferrer');
-      }
+      const ok = await addSource(sourceForm.userId, sourceForm.source);
+      if (ok) setSourceForm(emptySourceForm);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to create user');
+      toast.error(err.response?.data?.error || 'Failed to add source');
     } finally {
-      setCreatingUser(false);
+      setAddingSource(false);
     }
   };
 
-  const handleAddNumber = async (event) => {
-    event.preventDefault();
-    if (!addForm.userId) {
-      toast.error('Select a client');
-      return;
-    }
-    if (!addForm.clientName.trim()) {
-      toast.error('Phone / client name is required');
-      return;
-    }
-    setAddingNumber(true);
+  const handleInlineAddSource = async (owner) => {
+    const value = inlineSource[owner._id] || '';
+    setBusyId(`source-${owner._id}`);
     try {
-      const { data } = await createAdminPhoneNumber(addForm);
-      toast.success(data.message || 'Phone number added');
-      setAddForm(emptyAddForm);
+      const ok = await addSource(owner._id, value);
+      if (ok) setInlineSource((prev) => ({ ...prev, [owner._id]: '' }));
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to add source');
+    } finally {
+      setBusyId('');
+    }
+  };
+
+  const handleScanNumber = async (owner) => {
+    setBusyId(`scan-${owner._id}`);
+    try {
+      const clientName = `${owner.name} WhatsApp`;
+      const { data } = await createAdminUserClient(owner._id, clientName);
+      toast.success(data.message || 'Scan the QR to add this number');
       await load();
       if (data.qrShare?.pageUrl) {
         window.open(data.qrShare.pageUrl, '_blank', 'noopener,noreferrer');
       }
+      const client = data.client;
+      if (client?._id) {
+        const share = await getAdminClientQrShareLink(client._id);
+        if (share.data?.qrCode) setQr({ name: client.name, qr: share.data.qrCode });
+      }
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to add phone number');
+      toast.error(err.response?.data?.error || 'Failed to start scan');
     } finally {
-      setAddingNumber(false);
+      setBusyId('');
     }
   };
 
@@ -163,57 +178,30 @@ export default function AdminPhoneNumbersPage() {
         <div>
           <h2 style={{ margin: 0, color: '#1a1a2e' }}>Manage Phone Numbers</h2>
           <p style={{ color: '#666', margin: '6px 0 0', fontSize: 14, lineHeight: 1.5 }}>
-            Create a client, attach a WhatsApp number, and see every connected client.
+            Assign a source to each main service, then scan QR to add a WhatsApp number for that user.
           </p>
         </div>
         <input
           type="search"
-          placeholder="Search name, phone, email..."
+          placeholder="Search user or source..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          aria-label="Search phone numbers"
+          aria-label="Search users and sources"
           style={searchStyle}
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginBottom: 24 }}>
-        <form onSubmit={handleCreateUser} style={card}>
-          <h3 style={cardTitle}>Create user and number</h3>
+      <form onSubmit={handleAddSource} style={{ ...card, marginBottom: 24 }}>
+        <h3 style={cardTitle}>Add source to main service</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, alignItems: 'end' }}>
           <label style={labelStyle}>
-            User name
-            <input value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} style={inputStyle} />
-          </label>
-          <label style={labelStyle}>
-            Email
-            <input type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} style={inputStyle} />
-          </label>
-          <label style={labelStyle}>
-            Password
-            <input type="password" value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} style={inputStyle} />
-          </label>
-          <label style={labelStyle}>
-            Phone / client name
-            <input value={userForm.clientName} onChange={(e) => setUserForm({ ...userForm, clientName: e.target.value })} placeholder="e.g. Main WhatsApp" style={inputStyle} />
-          </label>
-          <label style={labelStyle}>
-            Phone number (optional)
-            <input value={userForm.phone} onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })} placeholder="e.g. 9665xxxxxxx" style={inputStyle} />
-          </label>
-          <button type="submit" disabled={creatingUser} style={primaryBtn}>
-            {creatingUser ? 'Creating...' : 'Create user and add number'}
-          </button>
-        </form>
-
-        <form onSubmit={handleAddNumber} style={card}>
-          <h3 style={cardTitle}>Add number to existing client</h3>
-          <label style={labelStyle}>
-            Client
+            Main service
             <select
-              value={addForm.userId}
-              onChange={(e) => setAddForm({ ...addForm, userId: e.target.value })}
+              value={sourceForm.userId}
+              onChange={(e) => setSourceForm({ ...sourceForm, userId: e.target.value })}
               style={inputStyle}
             >
-              <option value="">Select a client</option>
+              <option value="">Select a user</option>
               {owners.map((owner) => (
                 <option key={owner._id} value={owner._id}>
                   {owner.name} ({owner.email})
@@ -222,79 +210,126 @@ export default function AdminPhoneNumbersPage() {
             </select>
           </label>
           <label style={labelStyle}>
-            Phone / client name
-            <input value={addForm.clientName} onChange={(e) => setAddForm({ ...addForm, clientName: e.target.value })} placeholder="e.g. Second number" style={inputStyle} />
+            Source name
+            <input
+              value={sourceForm.source}
+              onChange={(e) => setSourceForm({ ...sourceForm, source: e.target.value })}
+              placeholder="e.g. amctag"
+              style={inputStyle}
+            />
           </label>
-          <label style={labelStyle}>
-            Phone number (optional)
-            <input value={addForm.phone} onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })} placeholder="e.g. 9665xxxxxxx" style={inputStyle} />
-          </label>
-          <button type="submit" disabled={addingNumber} style={primaryBtn}>
-            {addingNumber ? 'Adding...' : 'Add phone number'}
+          <button type="submit" disabled={addingSource} style={primaryBtn}>
+            {addingSource ? 'Adding...' : 'Add source'}
           </button>
-        </form>
-      </div>
+        </div>
+      </form>
 
       <section style={{ ...card, padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0' }}>
           <h3 style={{ margin: 0, fontSize: 16, color: '#0f172a' }}>
-            All clients ({filtered.length})
+            Users and sources ({filteredOwners.length})
           </h3>
         </div>
         {loading ? (
-          <div style={{ padding: 24, color: '#64748b' }}>Loading phone numbers...</div>
-        ) : filtered.length === 0 ? (
-          <div style={{ padding: 24, color: '#64748b' }}>No WhatsApp clients yet.</div>
+          <div style={{ padding: 24, color: '#64748b' }}>Loading users...</div>
+        ) : filteredOwners.length === 0 ? (
+          <div style={{ padding: 24, color: '#64748b' }}>No main services yet.</div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-              <thead>
-                <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #e0e0e0' }}>
-                  <th style={thStyle}>Client</th>
-                  <th style={thStyle}>Owner</th>
-                  <th style={thStyle}>Phone</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((client) => (
-                  <tr key={client._id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                    <td style={tdStyle}>
-                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{client.name}</div>
-                      <div style={{ fontSize: 12, color: '#94a3b8', fontFamily: 'ui-monospace, monospace', marginTop: 4 }}>
-                        {client._id}
+          <div>
+            {filteredOwners.map((owner) => {
+              const ownerClients = clientsByOwner[owner._id] || [];
+              const sources = owner.enabledSources || [];
+              return (
+                <div key={owner._id} style={ownerRow}>
+                  <div style={{ minWidth: 220 }}>
+                    <div style={{ fontWeight: 700, color: '#0f172a' }}>{owner.name}</div>
+                    <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>{owner.email}</div>
+                    <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
+                      {owner.plan?.name || 'No plan'}
+                    </div>
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 240 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>Sources</div>
+                    {sources.length ? (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                        {sources.map((source) => (
+                          <span key={source} style={sourceChip}>{source}</span>
+                        ))}
                       </div>
-                    </td>
-                    <td style={tdStyle}>
-                      <div>{client.ownerName || 'Unknown'}</div>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>{client.ownerEmail}</div>
-                    </td>
-                    <td style={tdStyle}>{client.phone ? `+${String(client.phone).replace(/^\+/, '')}` : 'Not connected'}</td>
-                    <td style={tdStyle}>
-                      <span style={statusBadge(client.status)}>
-                        {String(client.status || 'unknown').replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleShareQr(client)}
-                          disabled={busyId === client._id}
-                          style={secondaryBtn}
-                        >
-                          {busyId === client._id ? 'Opening...' : 'Share QR'}
-                        </button>
-                        <Link to={`/admin/users/${client.userId}/whatsapp`} style={linkBtn}>
-                          Open WhatsApp
-                        </Link>
+                    ) : (
+                      <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 10 }}>No sources assigned</div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <input
+                        value={inlineSource[owner._id] || ''}
+                        onChange={(e) => setInlineSource((prev) => ({ ...prev, [owner._id]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleInlineAddSource(owner);
+                          }
+                        }}
+                        placeholder="New source"
+                        aria-label={`Add source for ${owner.name}`}
+                        style={{ ...inputStyle, marginTop: 0, width: 160 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleInlineAddSource(owner)}
+                        disabled={busyId === `source-${owner._id}`}
+                        style={secondaryBtn}
+                      >
+                        {busyId === `source-${owner._id}` ? 'Adding...' : 'Add source'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 240 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>WhatsApp numbers</div>
+                    {ownerClients.length ? (
+                      <div style={{ display: 'grid', gap: 8, marginBottom: 10 }}>
+                        {ownerClients.map((client) => (
+                          <div key={client._id} style={numberRow}>
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{client.name}</div>
+                              <div style={{ fontSize: 12, color: '#64748b' }}>
+                                {client.phone ? `+${String(client.phone).replace(/^\+/, '')}` : 'Scan to connect'}
+                                {' · '}
+                                {String(client.status || '').replace('_', ' ')}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleShareQr(client)}
+                              disabled={busyId === client._id}
+                              style={secondaryBtn}
+                            >
+                              {busyId === client._id ? 'Opening...' : 'Scan QR'}
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    ) : (
+                      <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 10 }}>No number yet</div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleScanNumber(owner)}
+                        disabled={busyId === `scan-${owner._id}`}
+                        style={primaryBtn}
+                      >
+                        {busyId === `scan-${owner._id}` ? 'Starting...' : 'Add number by scan'}
+                      </button>
+                      <Link to={`/admin/users/${owner._id}/whatsapp`} style={linkBtn}>
+                        Open WhatsApp
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
@@ -317,19 +352,6 @@ export default function AdminPhoneNumbersPage() {
   );
 }
 
-const statusBadge = (status) => ({
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 28,
-  padding: '0 10px',
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 700,
-  textTransform: 'capitalize',
-  background: status === 'connected' ? '#dcfce7' : status === 'qr_ready' ? '#ffedd5' : '#f1f5f9',
-  color: status === 'connected' ? '#166534' : status === 'qr_ready' ? '#9a3412' : '#475569'
-});
-
 const card = {
   background: '#fff',
   borderRadius: 16,
@@ -338,7 +360,7 @@ const card = {
   boxShadow: '0 8px 24px rgba(15,23,42,0.06)'
 };
 const cardTitle = { margin: '0 0 16px', fontSize: 16, color: '#0f172a' };
-const labelStyle = { display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 12 };
+const labelStyle = { display: 'block', fontSize: 13, fontWeight: 600, color: '#334155' };
 const inputStyle = {
   display: 'block',
   width: '100%',
@@ -361,8 +383,6 @@ const searchStyle = {
 };
 const primaryBtn = {
   minHeight: 44,
-  width: '100%',
-  marginTop: 8,
   padding: '10px 16px',
   borderRadius: 8,
   border: 'none',
@@ -388,8 +408,34 @@ const linkBtn = {
   color: '#0f172a',
   boxSizing: 'border-box'
 };
-const thStyle = { textAlign: 'left', padding: '12px 16px', color: '#64748b', fontWeight: 700 };
-const tdStyle = { padding: '14px 16px', verticalAlign: 'top' };
+const ownerRow = {
+  display: 'flex',
+  gap: 24,
+  padding: 20,
+  borderBottom: '1px solid #f0f0f0',
+  flexWrap: 'wrap',
+  alignItems: 'flex-start'
+};
+const sourceChip = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 32,
+  padding: '0 10px',
+  borderRadius: 999,
+  background: '#ecfdf5',
+  color: '#0f766e',
+  fontSize: 13,
+  fontWeight: 700
+};
+const numberRow = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: 8,
+  border: '1px solid #e2e8f0',
+  borderRadius: 10,
+  padding: '8px 10px'
+};
 const overlay = {
   position: 'fixed',
   inset: 0,
