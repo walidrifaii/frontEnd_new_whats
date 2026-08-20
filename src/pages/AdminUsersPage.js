@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { getAdminUsers, updateUserBalance, addUserBalance, toggleUserActive, createServiceAccount, assignUserPlan, updateUserSources } from '../services/api';
+import { getAdminUsers, updateUserBalance, addUserBalance, toggleUserActive, createServiceAccount, assignUserPlan, updateUserSources, setUserSourceLock } from '../services/api';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
@@ -14,7 +14,7 @@ export default function AdminUsersPage() {
     name: '',
     email: '',
     password: '',
-    source: 'ehkini',
+    source: '',
     messageBalance: '0'
   });
   const [plans, setPlans] = useState([]);
@@ -103,6 +103,16 @@ export default function AdminUsersPage() {
     ));
   };
 
+  const handleSourceLock = async (user, source) => {
+    try {
+      const { data } = await setUserSourceLock(user._id, source);
+      toast.success(data.message || 'Source access updated');
+      loadUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update source lock');
+    }
+  };
+
   const handleCreateService = async () => {
     if (!serviceModal) return;
     const source = String(serviceForm.source || '').trim().toLowerCase();
@@ -120,7 +130,7 @@ export default function AdminUsersPage() {
       });
       toast.success(`Created ${source} login`);
       setServiceModal(null);
-      setServiceForm({ name: '', email: '', password: '', source: 'ehkini', messageBalance: '0' });
+      setServiceForm({ name: '', email: '', password: '', source: '', messageBalance: '0' });
       loadUsers();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to create service login');
@@ -173,7 +183,11 @@ export default function AdminUsersPage() {
                   <div style={{ fontSize: 12, color: '#888' }}>{user.email}</div>
                   {user.source ? (
                     <div style={{ fontSize: 12, color: '#25d366', marginTop: 4 }}>
-                      source: {user.source}
+                      locked source: {user.source}
+                    </div>
+                  ) : user.parentUserId ? (
+                    <div style={{ fontSize: 12, color: '#007aff', marginTop: 4 }}>
+                      can switch sources
                     </div>
                   ) : null}
                   {user.parentUserId ? (
@@ -276,12 +290,36 @@ export default function AdminUsersPage() {
                             name: '',
                             email: '',
                             password: '',
-                            source: 'ehkini',
+                            source: '',
                             messageBalance: '0'
                           });
                         }}
                         style={btnStyle('#007aff')}
                       >+ Service login</button>
+                    ) : null}
+                    {user.parentUserId ? (
+                      user.source ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSourceLock(user, null)}
+                          style={btnStyle('#007aff')}
+                        >
+                          Allow switch
+                        </button>
+                      ) : (user.enabledSources || []).length ? (
+                        (user.enabledSources || []).map((name) => (
+                          <button
+                            key={name}
+                            type="button"
+                            onClick={() => handleSourceLock(user, name)}
+                            style={btnStyle('#5856d6')}
+                          >
+                            Lock {name}
+                          </button>
+                        ))
+                      ) : (
+                        <span style={{ fontSize: 12, color: '#888' }}>Enable sources on the owner first</span>
+                      )
                     ) : null}
                   </div>
                 </td>
@@ -397,14 +435,14 @@ export default function AdminUsersPage() {
           }}>
             <h3 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Add service login</h3>
             <p style={{ color: '#666', fontSize: 14, margin: '0 0 20px' }}>
-              For <strong>{serviceModal.name}</strong>. ehkini and solv each get their own email/password,
-              share this WhatsApp, and only see their source on /stats.
+              For <strong>{serviceModal.name}</strong>. Use a real source name from this account
+              (from sent messages or enabled sources). That login only sees that source on /stats.
             </p>
             <div style={{ display: 'grid', gap: 12 }}>
               <label style={{ fontSize: 13, fontWeight: 600, color: '#444' }}>
                 Source
                 <input
-                  placeholder="ehkini or solv"
+                  placeholder="Type the real source name"
                   value={serviceForm.source}
                   onChange={(e) => setServiceForm((p) => ({ ...p, source: e.target.value }))}
                   style={{
@@ -413,23 +451,29 @@ export default function AdminUsersPage() {
                   }}
                 />
               </label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {['ehkini', 'solv'].map((name) => (
-                  <button
-                    key={name}
-                    type="button"
-                    onClick={() => setServiceForm((p) => ({ ...p, source: name }))}
-                    style={{
-                      padding: '6px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13,
-                      border: '1px solid #ddd',
-                      background: serviceForm.source === name ? '#25d366' : '#fff',
-                      color: serviceForm.source === name ? '#fff' : '#333'
-                    }}
-                  >
-                    {name}
-                  </button>
-                ))}
-              </div>
+              {(serviceModal.sourceCatalog || serviceModal.enabledSources || []).length ? (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {(serviceModal.sourceCatalog || serviceModal.enabledSources || []).map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => setServiceForm((p) => ({ ...p, source: name }))}
+                      style={{
+                        padding: '6px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13,
+                        border: '1px solid #ddd',
+                        background: serviceForm.source === name ? '#25d366' : '#fff',
+                        color: serviceForm.source === name ? '#fff' : '#333'
+                      }}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ margin: 0, fontSize: 13, color: '#888' }}>
+                  No sources on this account yet. Type the name used when sending messages.
+                </p>
+              )}
               <input
                 placeholder="Display name"
                 value={serviceForm.name}
@@ -509,9 +553,13 @@ export default function AdminUsersPage() {
               {sourcesModal.plan
                 ? ` ${sourcesModal.plan.name} allows ${sourcesModal.plan.sourceLimit} source(s).`
                 : ' Assign a plan first if you want a source limit.'}
+              {' '}Only names already used on this account are listed. Add a new name below if needed.
             </p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-              {[...new Set([...(sourcesModal.sourceCatalog || ['ehkini', 'solv']), ...sourceDraft])].map((name) => (
+              {[...new Set([...(sourcesModal.sourceCatalog || []), ...sourceDraft])].filter(Boolean).length === 0 ? (
+                <span style={{ fontSize: 13, color: '#888' }}>No sources found yet. Add the real name used in sends.</span>
+              ) : null}
+              {[...new Set([...(sourcesModal.sourceCatalog || []), ...sourceDraft])].filter(Boolean).map((name) => (
                 <button
                   key={name}
                   type="button"

@@ -70,7 +70,7 @@ export default function AdminPlansPage() {
       <p style={{ color: '#666', margin: '0 0 24px', fontSize: 14, maxWidth: 720 }}>
         These numbers control every client. Mini / Medium / Max can be renamed and their
         message quota and source slots can be changed here. Assign a plan to an owner on
-        Manage Users, then enable ehkini / solv for that owner.
+        Manage Users, then enable the real sources used on that owner.
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>

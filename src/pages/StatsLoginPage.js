@@ -59,7 +59,7 @@ export default function StatsLoginPage() {
           </div>
           <h2 style={{ margin: '8px 0 4px', color: '#1a1a2e' }}>Message Stats</h2>
           <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
-            Owner account or a locked source login (ehkini / solv)
+            Owner account or a locked source login
           </p>
         </div>
         <form onSubmit={handleSubmit}>
@@ -72,7 +72,7 @@ export default function StatsLoginPage() {
               autoComplete="username"
               style={inputStyle}
               value={form.email}
-              placeholder="ehkini@example.com"
+              placeholder="you@example.com"
               onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
             />
           </div>

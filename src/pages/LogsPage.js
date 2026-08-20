@@ -7,6 +7,7 @@ export default function LogsPage() {
   const lockedSource = user?.source || '';
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
+  const [bySource, setBySource] = useState([]);
   const [clients, setClients] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -22,6 +23,7 @@ export default function LogsPage() {
       setLogs(l.data.logs);
       setTotal(l.data.total);
       setStats(s.data.stats);
+      setBySource(s.data.bySource || []);
       setPage(p);
     } catch {}
     finally { setLoading(false); }
@@ -94,8 +96,14 @@ export default function LogsPage() {
           ) : (
             <>
               <option value="">All Sources</option>
-              <option value="ehkini">ehkini</option>
-              <option value="solv">solv</option>
+              {[...new Set([
+                ...(user?.subscription?.enabledSources || []),
+                ...bySource.map((row) => row.source)
+              ])]
+                .filter((name) => name && name !== '_untagged')
+                .map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
             </>
           )}
         </select>

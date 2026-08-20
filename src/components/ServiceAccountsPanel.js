@@ -19,14 +19,17 @@ export default function ServiceAccountsPanel() {
     name: '',
     email: '',
     password: '',
-    source: 'solv',
+    source: '',
     messageBalance: '0'
   });
+  const [knownSources, setKnownSources] = useState([]);
 
   const load = useCallback(async () => {
     try {
       const { data } = await getServiceAccounts();
       setAccounts(data.accounts || []);
+      const fromAccounts = (data.accounts || []).map((a) => a.source).filter(Boolean);
+      setKnownSources([...new Set([...(data.knownSources || []), ...fromAccounts])].sort());
     } catch (err) {
       console.error(err);
     } finally {
@@ -48,7 +51,7 @@ export default function ServiceAccountsPanel() {
         messageBalance: parseInt(form.messageBalance, 10) || 0
       });
       toast.success(`Created ${form.source} login. They use /stats-login`);
-      setForm({ name: '', email: '', password: '', source: 'solv', messageBalance: '0' });
+      setForm({ name: '', email: '', password: '', source: '', messageBalance: '0' });
       load();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Could not create service login');
@@ -67,8 +70,8 @@ export default function ServiceAccountsPanel() {
     }}>
       <h3 style={{ margin: '0 0 8px', color: '#333' }}>Service logins (same WhatsApp)</h3>
       <p style={{ color: '#666', fontSize: 14, margin: '0 0 20px' }}>
-        Add an email, password, and source (example: solv). That person signs in at
-        {' '}<strong>/stats-login</strong> and only sees that source&apos;s messages.
+        Add an email, password, and the real source name used when sending.
+        That person signs in at <strong>/stats-login</strong> and only sees that source&apos;s messages.
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
@@ -98,7 +101,7 @@ export default function ServiceAccountsPanel() {
         />
         <input
           required
-          placeholder="source (solv)"
+          placeholder="Source name"
           value={form.source}
           onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))}
           style={fieldStyle}
@@ -129,31 +132,33 @@ export default function ServiceAccountsPanel() {
         </button>
       </form>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        {['solv', 'ehkini'].map((name) => (
-          <button
-            key={name}
-            type="button"
-            onClick={() => setForm((p) => ({ ...p, source: name, name: name }))}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 6,
-              cursor: 'pointer',
-              border: '1px solid #ddd',
-              background: form.source === name ? '#16a34a' : '#fff',
-              color: form.source === name ? '#fff' : '#333',
-              fontSize: 13
-            }}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
+      {knownSources.length ? (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          {knownSources.map((name) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => setForm((p) => ({ ...p, source: name, name: p.name || name }))}
+              style={{
+                padding: '6px 12px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                border: '1px solid #ddd',
+                background: form.source === name ? '#16a34a' : '#fff',
+                color: form.source === name ? '#fff' : '#333',
+                fontSize: 13
+              }}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {loading ? (
         <div style={{ color: '#999', fontSize: 14 }}>Loading service logins...</div>
       ) : accounts.length === 0 ? (
-        <div style={{ color: '#999', fontSize: 14 }}>No service logins yet. Add solv or ehkini above.</div>
+        <div style={{ color: '#999', fontSize: 14 }}>No service logins yet.</div>
       ) : (
         accounts.map((account) => (
           <div
