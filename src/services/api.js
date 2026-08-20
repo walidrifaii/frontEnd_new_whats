@@ -127,6 +127,8 @@ export const updateUserSources = (id, sources, remove = []) =>
 export const setUserSourceLock = (id, source) => api.patch(`/admin/users/${id}/source-lock`, { source });
 export const getAdminUserClients = (userId) => api.get(`/admin/users/${userId}/clients`);
 export const createAdminUserClient = (userId, name) => api.post(`/admin/users/${userId}/clients`, { name });
+export const getAdminPhoneNumbers = () => api.get('/admin/phone-numbers');
+export const createAdminPhoneNumber = (data) => api.post('/admin/phone-numbers', data);
 export const connectAdminClient = (id) => api.post(`/admin/clients/${id}/connect`);
 export const getAdminClientQrShareLink = (id) => api.get(`/admin/clients/${id}/qr-share-link`);
 export const getAdminUserCredentials = (userId) => api.get(`/admin/users/${userId}/credentials`);
