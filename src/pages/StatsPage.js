@@ -40,7 +40,7 @@ export default function StatsPage() {
   const [requestingId, setRequestingId] = useState('');
 
   const sourceOptions = [...new Set(
-    [lockedSource, ...(enabledSources || []), ...(sub.catalog || []), ...(statsSourceOptions || [])]
+    (isLocked ? [lockedSource] : [...(enabledSources || []), ...(statsSourceOptions || [])])
       .map((item) => String(item || '').trim())
       .filter((item) => item && item !== '_untagged')
   )];
@@ -53,14 +53,12 @@ export default function StatsPage() {
     try {
       const overview = await getLogStats();
       const names = [...new Set(
-        [
-          lockedSource,
-          ...(enabledSources || []),
-          ...(sub.catalog || []),
-          ...(overview.data.knownSources || []),
-          ...(overview.data.enabledSources || []),
-          ...(overview.data.bySource || []).map((row) => row.source)
-        ]
+        (isLocked
+          ? [lockedSource]
+          : [
+              ...(enabledSources || []),
+              ...(overview.data.enabledSources || [])
+            ])
           .map((item) => String(item || '').trim())
           .filter((item) => item && item !== '_untagged')
       )];

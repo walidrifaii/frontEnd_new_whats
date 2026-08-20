@@ -17,7 +17,6 @@ export default function StatsLayout() {
   const isOwner = !isLocked && !(user?.isServiceAccount || user?.parentUserId);
   const switchSources = uniqueSources(
     statsSourceOptions,
-    user?.subscription?.catalog,
     user?.subscription?.enabledSources
   );
   const switchKey = switchSources.join(',');
@@ -31,7 +30,7 @@ export default function StatsLayout() {
     if (!switchKey) return;
     const list = switchKey.split(',').filter(Boolean);
     if (!list.includes(statsSource)) {
-      setStatsSource(list[0]);
+      setStatsSource(list[0] || '');
     }
   }, [isLocked, switchKey, statsSource, setStatsSource]);
 

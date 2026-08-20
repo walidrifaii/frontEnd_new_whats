@@ -209,17 +209,9 @@ export default function ClientsPage() {
         pageUrl: data?.pageUrl || '',
         imageUrl: data?.imageUrl || ''
       });
-      toast.success('QR link generated successfully');
-
-      try {
-        const copied = await copyText(shareUrl);
-        if (copied) {
-          toast.success('QR share link copied');
-        } else {
-          window.prompt('Copy this QR link:', shareUrl);
-        }
-      } catch (_) {
-        window.prompt('Copy this QR link:', shareUrl);
+      if (data?.pageUrl) {
+        window.open(data.pageUrl, '_blank', 'noopener,noreferrer');
+        toast.success('Opened the QR scan page');
       }
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to get QR share link');

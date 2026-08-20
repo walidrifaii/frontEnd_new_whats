@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { getAdminUsers, updateUserBalance, addUserBalance, toggleUserActive, createServiceAccount, assignUserPlan, updateUserSources, setUserSourceLock } from '../services/api';
+import { getAdminUsers, updateUserBalance, addUserBalance, toggleUserActive, createServiceAccount, assignUserPlan, updateUserSources, setUserSourceLock, getAdminUserClients, createAdminUserClient, connectAdminClient, getAdminClientQrShareLink } from '../services/api';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
@@ -21,7 +21,17 @@ export default function AdminUsersPage() {
   const [planDrafts, setPlanDrafts] = useState({});
   const [sourcesModal, setSourcesModal] = useState(null);
   const [sourceDraft, setSourceDraft] = useState([]);
+  const [sourceList, setSourceList] = useState([]);
+  const [removedSources, setRemovedSources] = useState([]);
   const [customSource, setCustomSource] = useState('');
+  const [waModal, setWaModal] = useState(null);
+  const [waClients, setWaClients] = useState([]);
+  const [waLoading, setWaLoading] = useState(false);
+  const [waName, setWaName] = useState('');
+  const [waCreating, setWaCreating] = useState(false);
+  const [waBusyId, setWaBusyId] = useState('');
+  const [waQr, setWaQr] = useState(null);
+  const [waQrDismissed, setWaQrDismissed] = useState(false);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -88,7 +98,7 @@ export default function AdminUsersPage() {
   const handleSaveSources = async () => {
     if (!sourcesModal) return;
     try {
-      await updateUserSources(sourcesModal._id, sourceDraft);
+      await updateUserSources(sourcesModal._id, sourceDraft, removedSources);
       toast.success('Sources updated');
       setSourcesModal(null);
       loadUsers();
@@ -101,6 +111,117 @@ export default function AdminUsersPage() {
     setSourceDraft((prev) => (
       prev.includes(name) ? prev.filter((item) => item !== name) : [...prev, name]
     ));
+  };
+
+  const deleteSourceDraft = (name) => {
+    setSourceDraft((prev) => prev.filter((item) => item !== name));
+    setSourceList((prev) => prev.filter((item) => item !== name));
+    setRemovedSources((prev) => (prev.includes(name) ? prev : [...prev, name]));
+  };
+
+  const addCustomSource = () => {
+    const name = String(customSource || '').trim().toLowerCase();
+    if (!name) return;
+    setSourceList((prev) => (prev.includes(name) ? prev : [...prev, name]));
+    setSourceDraft((prev) => (prev.includes(name) ? prev : [...prev, name]));
+    setRemovedSources((prev) => prev.filter((item) => item !== name));
+    setCustomSource('');
+  };
+
+  const openSourcesModal = (user) => {
+    setSourcesModal(user);
+    setSourceDraft(user.enabledSources || []);
+    setSourceList([...(user.sourceCatalog || user.enabledSources || [])].filter(Boolean));
+    setRemovedSources([]);
+    setCustomSource('');
+  };
+
+  const loadWaClients = useCallback(async (userId) => {
+    if (!userId) return;
+    const { data } = await getAdminUserClients(userId);
+    setWaClients(data.clients || []);
+    return data.clients || [];
+  }, []);
+
+  const openWhatsAppModal = async (user) => {
+    setWaModal(user);
+    setWaName(user.name ? `${user.name} WhatsApp` : 'WhatsApp');
+    setWaQr(null);
+    setWaQrDismissed(false);
+    setWaLoading(true);
+    try {
+      await loadWaClients(user._id);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to load WhatsApp clients');
+    } finally {
+      setWaLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!waModal) return;
+    const connecting = waClients.some((c) => ['initializing', 'qr_ready'].includes(c.status));
+    if (!connecting) return;
+    const timer = setInterval(() => {
+      loadWaClients(waModal._id).catch(() => {});
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [waModal, waClients, loadWaClients]);
+
+  useEffect(() => {
+    if (!waModal || waQr || waQrDismissed) return;
+    const ready = waClients.find((c) => c.status === 'qr_ready' && c.qrCode);
+    if (ready) setWaQr({ name: ready.name, qr: ready.qrCode });
+  }, [waModal, waClients, waQr, waQrDismissed]);
+
+  const handleCreateWaClient = async () => {
+    if (!waModal) return;
+    const name = String(waName || '').trim();
+    if (!name) {
+      toast.error('Client name is required');
+      return;
+    }
+    setWaCreating(true);
+    try {
+      const { data } = await createAdminUserClient(waModal._id, name);
+      toast.success(data.message || 'WhatsApp client created');
+      setWaName('');
+      await loadWaClients(waModal._id);
+      loadUsers();
+      if (data.qrShare?.pageUrl) {
+        window.open(data.qrShare.pageUrl, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to create WhatsApp client');
+    } finally {
+      setWaCreating(false);
+    }
+  };
+
+  const handleShareQr = async (client) => {
+    setWaBusyId(client._id);
+    try {
+      if (['disconnected', 'auth_failure'].includes(client.status)) {
+        await connectAdminClient(client._id);
+        setWaClients((prev) => prev.map((c) => (
+          c._id === client._id ? { ...c, status: 'initializing' } : c
+        )));
+      }
+      const { data } = await getAdminClientQrShareLink(client._id);
+      if (data.qrCode) {
+        setWaQr({ name: client.name, qr: data.qrCode });
+      }
+      if (data.pageUrl) {
+        window.open(data.pageUrl, '_blank', 'noopener,noreferrer');
+        toast.success('Opened the QR scan page');
+      } else {
+        toast.error('QR share link is not available');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to open QR page');
+    } finally {
+      setWaBusyId('');
+    }
   };
 
   const handleSourceLock = async (user, source) => {
@@ -233,11 +354,7 @@ export default function AdminUsersPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            setSourcesModal(user);
-                            setSourceDraft(user.enabledSources || []);
-                            setCustomSource('');
-                          }}
+                          onClick={() => openSourcesModal(user)}
                           style={btnStyle('#007aff')}
                         >
                           Sources
@@ -282,6 +399,13 @@ export default function AdminUsersPage() {
                       onClick={() => handleToggleActive(user._id)}
                       style={btnStyle(user.isActive ? '#ff3b30' : '#34c759')}
                     >{user.isActive ? 'Disable' : 'Enable'}</button>
+                    {!user.parentUserId && user.role !== 'admin' ? (
+                      <button
+                        type="button"
+                        onClick={() => openWhatsAppModal(user)}
+                        style={btnStyle('#128c7e')}
+                      >WhatsApp / QR</button>
+                    ) : null}
                     {!user.parentUserId && user.role !== 'admin' ? (
                       <button
                         onClick={() => {
@@ -332,6 +456,159 @@ export default function AdminUsersPage() {
           <div style={{ padding: 40, textAlign: 'center', color: '#999' }}>No users found</div>
         )}
       </div>
+
+      {waModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 12, padding: 28, width: 'min(640px, 94vw)',
+            maxHeight: '90vh', overflowY: 'auto',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)'
+          }}>
+            <h3 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>WhatsApp client</h3>
+            <p style={{ color: '#666', fontSize: 14, margin: '0 0 16px' }}>
+              For <strong>{waModal.name}</strong>. Create a client, then use Share QR to open the scan page.
+            </p>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              <input
+                placeholder="Client name, e.g. Main number"
+                value={waName}
+                onChange={(e) => setWaName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleCreateWaClient();
+                  }
+                }}
+                style={{
+                  flex: 1, padding: '10px 12px', borderRadius: 8,
+                  border: '1px solid #ddd', fontSize: 14, minHeight: 44, boxSizing: 'border-box'
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleCreateWaClient}
+                disabled={waCreating}
+                style={{
+                  padding: '10px 16px', minHeight: 44, borderRadius: 8, border: 'none',
+                  background: '#128c7e', color: '#fff', cursor: waCreating ? 'wait' : 'pointer',
+                  fontWeight: 600, opacity: waCreating ? 0.7 : 1
+                }}
+              >
+                {waCreating ? 'Creating...' : 'Create client'}
+              </button>
+            </div>
+            {waLoading ? (
+              <div style={{ color: '#888', fontSize: 14, padding: '12px 0' }}>Loading clients...</div>
+            ) : waClients.length === 0 ? (
+              <div style={{ color: '#888', fontSize: 14, padding: '12px 0' }}>
+                No WhatsApp clients yet. Create one above.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
+                {waClients.map((client) => (
+                  <div
+                    key={client._id}
+                    style={{
+                      border: '1px solid #eee',
+                      borderRadius: 10,
+                      padding: 12,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 12,
+                      flexWrap: 'wrap'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#1a1a2e' }}>{client.name}</div>
+                      <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+                        {client.phone ? `+${client.phone}` : 'Not connected'}
+                        {' · '}{String(client.status || '').replace('_', ' ')}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {client.status === 'qr_ready' && client.qrCode ? (
+                        <button
+                          type="button"
+                          onClick={() => setWaQr({ name: client.name, qr: client.qrCode })}
+                          style={{
+                            ...btnStyle('#25d366'),
+                            minHeight: 44,
+                            padding: '10px 14px'
+                          }}
+                        >
+                          Show QR
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => handleShareQr(client)}
+                        disabled={waBusyId === client._id}
+                        style={{
+                          ...btnStyle('#007aff'),
+                          minHeight: 44,
+                          padding: '10px 14px',
+                          opacity: waBusyId === client._id ? 0.7 : 1
+                        }}
+                      >
+                        {waBusyId === client._id ? 'Opening...' : 'Share QR'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => { setWaModal(null); setWaQr(null); }}
+                style={{
+                  padding: '10px 20px', minHeight: 44, borderRadius: 8,
+                  border: '1px solid #ddd', background: '#fff', cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {waQr && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 16, padding: 32, textAlign: 'center', maxWidth: 360
+          }}>
+            <h3 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Scan WhatsApp QR</h3>
+            <p style={{ color: '#666', fontSize: 14, marginBottom: 16 }}>
+              {waQr.name}. Open WhatsApp → Linked devices → Link a device.
+            </p>
+            <img
+              src={waQr.qr}
+              alt="WhatsApp QR code"
+              style={{ width: 280, height: 280, border: '1px solid #eee', borderRadius: 8 }}
+            />
+            <div style={{ marginTop: 20 }}>
+              <button
+                type="button"
+                onClick={() => { setWaQr(null); setWaQrDismissed(true); }}
+                style={{
+                  padding: '10px 24px', minHeight: 44, borderRadius: 8, border: 'none',
+                  background: '#666', color: '#fff', cursor: 'pointer', fontWeight: 600
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Balance Modal */}
       {balanceModal && (
@@ -451,9 +728,9 @@ export default function AdminUsersPage() {
                   }}
                 />
               </label>
-              {(serviceModal.sourceCatalog || serviceModal.enabledSources || []).length ? (
+              {(serviceModal.enabledSources || []).length ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {(serviceModal.sourceCatalog || serviceModal.enabledSources || []).map((name) => (
+                  {(serviceModal.enabledSources || []).map((name) => (
                     <button
                       key={name}
                       type="button"
@@ -553,37 +830,67 @@ export default function AdminUsersPage() {
               {sourcesModal.plan
                 ? ` ${sourcesModal.plan.name} allows ${sourcesModal.plan.sourceLimit} source(s).`
                 : ' Assign a plan first if you want a source limit.'}
-              {' '}Only names already used on this account are listed. Add a new name below if needed.
+              {' '}Off sources stay on this list for you, but they are hidden from the user. Delete removes a source completely.
             </p>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-              {[...new Set([...(sourcesModal.sourceCatalog || []), ...sourceDraft])].filter(Boolean).length === 0 ? (
-                <span style={{ fontSize: 13, color: '#888' }}>No sources found yet. Add the real name used in sends.</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+              {sourceList.filter(Boolean).length === 0 ? (
+                <span style={{ fontSize: 13, color: '#888' }}>No sources yet. Add the real name used in sends.</span>
               ) : null}
-              {[...new Set([...(sourcesModal.sourceCatalog || []), ...sourceDraft])].filter(Boolean).map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  onClick={() => toggleSourceDraft(name)}
-                  style={{
-                    padding: '10px 14px',
-                    minHeight: 44,
-                    borderRadius: 8,
-                    cursor: 'pointer',
-                    border: '1px solid #ddd',
-                    background: sourceDraft.includes(name) ? '#25d366' : '#fff',
-                    color: sourceDraft.includes(name) ? '#fff' : '#333',
-                    fontWeight: 600
-                  }}
-                >
-                  {sourceDraft.includes(name) ? `${name} on` : `${name} off`}
-                </button>
-              ))}
+              {sourceList.filter(Boolean).map((name) => {
+                const isOn = sourceDraft.includes(name);
+                return (
+                  <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleSourceDraft(name)}
+                      style={{
+                        flex: 1,
+                        padding: '10px 14px',
+                        minHeight: 44,
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        border: '1px solid #ddd',
+                        background: isOn ? '#25d366' : '#fff',
+                        color: isOn ? '#fff' : '#333',
+                        fontWeight: 600,
+                        textAlign: 'left'
+                      }}
+                    >
+                      {isOn ? `${name} on` : `${name} off`}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Delete ${name}`}
+                      onClick={() => deleteSourceDraft(name)}
+                      style={{
+                        padding: '10px 14px',
+                        minHeight: 44,
+                        minWidth: 88,
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        border: '1px solid #f5c2c0',
+                        background: '#fff5f5',
+                        color: '#ff3b30',
+                        fontWeight: 600
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                );
+              })}
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
               <input
                 placeholder="Add another source"
                 value={customSource}
                 onChange={(e) => setCustomSource(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addCustomSource();
+                  }
+                }}
                 style={{
                   flex: 1, padding: '10px 12px', borderRadius: 8,
                   border: '1px solid #ddd', fontSize: 14
@@ -591,13 +898,15 @@ export default function AdminUsersPage() {
               />
               <button
                 type="button"
-                onClick={() => {
-                  const name = String(customSource || '').trim().toLowerCase();
-                  if (!name) return;
-                  if (!sourceDraft.includes(name)) setSourceDraft((p) => [...p, name]);
-                  setCustomSource('');
+                onClick={addCustomSource}
+                style={{
+                  padding: '10px 14px',
+                  minHeight: 44,
+                  borderRadius: 8,
+                  border: '1px solid #ddd',
+                  background: '#fff',
+                  cursor: 'pointer'
                 }}
-                style={{ padding: '10px 14px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
               >
                 Add
               </button>
