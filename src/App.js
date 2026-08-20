@@ -29,8 +29,8 @@ const StatsProtectedRoute = ({ children }) => {
   const { token, user, loading } = useAuthStore();
   if (loading) return <div className="loading-screen">Loading...</div>;
   if (!token) return <Navigate to="/stats-login" replace />;
-  if (user && !(user.isServiceAccount || user.parentUserId)) {
-    return <Navigate to="/" replace />;
+  if (user?.isAdmin || user?.role === 'admin') {
+    return <Navigate to="/admin" replace />;
   }
   return children;
 };

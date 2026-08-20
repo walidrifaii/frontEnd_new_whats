@@ -20,7 +20,8 @@ export default function Layout() {
         { to: '/', label: '📊 Dashboard', end: true },
         { to: '/clients', label: '📱 WhatsApp Clients' },
         { to: '/campaigns', label: '📣 Campaigns' },
-        { to: '/logs', label: '📋 Message Logs' }
+        { to: '/logs', label: '📋 Message Logs' },
+        { to: '/stats', label: '📈 Message Stats' }
       ];
 
   const adminItems = [

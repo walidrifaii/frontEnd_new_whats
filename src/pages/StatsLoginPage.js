@@ -59,7 +59,7 @@ export default function StatsLoginPage() {
           </div>
           <h2 style={{ margin: '8px 0 4px', color: '#1a1a2e' }}>Message Stats</h2>
           <p style={{ color: '#666', margin: 0, fontSize: 14 }}>
-            Sign in with your ehkini or solv account
+            Owner account or a locked source login (ehkini / solv)
           </p>
         </div>
         <form onSubmit={handleSubmit}>
@@ -94,8 +94,8 @@ export default function StatsLoginPage() {
           </button>
         </form>
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#666', lineHeight: 1.5 }}>
-          Owner WhatsApp accounts cannot sign in here.
-          Use the old login: <Link to="/login" style={{ color: '#16a34a' }}>/login</Link>
+          WhatsApp owner? You can sign in here to switch sources, or use
+          {' '}<Link to="/login" style={{ color: '#16a34a' }}>/login</Link> for the old dashboard.
         </p>
       </div>
     </div>

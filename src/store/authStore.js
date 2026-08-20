@@ -1,19 +1,42 @@
 import { create } from 'zustand';
 import { getMe } from '../services/api';
 
+const STATS_SOURCE_KEY = 'statsSource';
+
+const readStoredSource = () => {
+  try {
+    return sessionStorage.getItem(STATS_SOURCE_KEY) || '';
+  } catch (_) {
+    return '';
+  }
+};
+
 const useAuthStore = create((set) => ({
   user: null,
   token: localStorage.getItem('token'),
   loading: true,
+  statsSource: readStoredSource(),
 
   setAuth: (token, user) => {
     localStorage.setItem('token', token);
     set({ token, user, loading: false });
   },
 
+  setStatsSource: (source) => {
+    const value = String(source || '');
+    try {
+      if (value) sessionStorage.setItem(STATS_SOURCE_KEY, value);
+      else sessionStorage.removeItem(STATS_SOURCE_KEY);
+    } catch (_) { /* ignore */ }
+    set({ statsSource: value });
+  },
+
   logout: () => {
     localStorage.removeItem('token');
-    set({ token: null, user: null, loading: false });
+    try {
+      sessionStorage.removeItem(STATS_SOURCE_KEY);
+    } catch (_) { /* ignore */ }
+    set({ token: null, user: null, statsSource: '', loading: false });
   },
 
   loadUser: async () => {
@@ -29,7 +52,10 @@ const useAuthStore = create((set) => ({
       const status = err?.response?.status;
       if (status === 401) {
         localStorage.removeItem('token');
-        set({ token: null, user: null, loading: false });
+        try {
+          sessionStorage.removeItem(STATS_SOURCE_KEY);
+        } catch (_) { /* ignore */ }
+        set({ token: null, user: null, statsSource: '', loading: false });
         return;
       }
       set({ loading: false });

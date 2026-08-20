@@ -26,28 +26,22 @@ const statusColors = {
 };
 
 export default function StatsPage() {
-  const { user, loadUser } = useAuthStore();
+  const { user, loadUser, statsSource } = useAuthStore();
   const sub = user?.subscription || {};
   const lockedSource = user?.source || '';
+  const isLocked = Boolean(lockedSource);
   const enabledSources = sub.enabledSources || [];
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
-  const [bySource, setBySource] = useState([]);
-  const [sourceFilter, setSourceFilter] = useState(lockedSource);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [plans, setPlans] = useState([]);
   const [requestingId, setRequestingId] = useState('');
 
-  useEffect(() => {
-    if (lockedSource && !sourceFilter) setSourceFilter(lockedSource);
-  }, [lockedSource, sourceFilter]);
-
-  const switchable = enabledSources.length >= 2;
-  const activeSource = switchable
-    ? (sourceFilter || lockedSource || enabledSources[0] || '')
-    : (lockedSource || sourceFilter || enabledSources[0] || '');
+  const activeSource = isLocked
+    ? lockedSource
+    : (enabledSources.includes(statsSource) ? statsSource : (enabledSources[0] || ''));
 
   const load = useCallback(async (p = 1) => {
     setLoading(true);
@@ -63,7 +57,6 @@ export default function StatsPage() {
       setLogs(logRes.data.logs || []);
       setTotal(logRes.data.total || 0);
       setStats(statsRes.data.stats);
-      setBySource(statsRes.data.bySource || []);
       setPage(p);
     } catch (err) {
       console.error(err);
@@ -175,53 +168,7 @@ export default function StatsPage() {
         </div>
       ) : null}
 
-      {switchable ? (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#444', marginBottom: 8 }}>Source</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {enabledSources.map((name) => (
-              <button
-                key={name}
-                type="button"
-                onClick={() => setSourceFilter(name)}
-                style={{
-                  minHeight: 44,
-                  padding: '8px 16px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  border: '1px solid #ddd',
-                  background: activeSource === name ? '#16a34a' : '#fff',
-                  color: activeSource === name ? '#fff' : '#333',
-                  fontWeight: 600
-                }}
-              >
-                {name}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : !lockedSource ? (
-        <div style={{ marginBottom: 24 }}>
-          <label htmlFor="source-filter" style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#444', marginBottom: 6 }}>
-            Source
-          </label>
-          <select
-            id="source-filter"
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, minWidth: 220, minHeight: 44 }}
-          >
-            <option value="">All sources</option>
-            {bySource.filter((row) => row.source && row.source !== '_untagged').map((row) => (
-              <option key={row.source} value={row.source}>
-                {row.source} ({row.sent || 0} sent)
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
-
-      {lockedSource && enabledSources.length > 0 && !enabledSources.includes(lockedSource) ? (
+      {isLocked && enabledSources.length > 0 && !enabledSources.includes(lockedSource) ? (
         <div style={{
           background: '#fff7ed',
           color: '#9a3412',
