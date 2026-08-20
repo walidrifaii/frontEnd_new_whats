@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { getAdminUsers, updateUserBalance, addUserBalance, toggleUserActive, createServiceAccount, assignUserPlan, updateUserSources, setUserSourceLock, getAdminUserClients, createAdminUserClient, connectAdminClient, getAdminClientQrShareLink } from '../services/api';
 
 export default function AdminUsersPage() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [balanceModal, setBalanceModal] = useState(null);
@@ -404,6 +406,13 @@ export default function AdminUsersPage() {
                       onClick={() => { setBalanceModal(user); setBalanceMode('add'); setBalanceInput(''); }}
                       style={btnStyle('#25d366')}
                     >+ Add</button>
+                    {user.role !== 'admin' ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/admin/users/${user._id}/credentials`)}
+                        style={btnStyle('#0f766e')}
+                      >Credentials</button>
+                    ) : null}
                     <button
                       onClick={() => handleToggleActive(user._id)}
                       style={btnStyle(user.isActive ? '#ff3b30' : '#34c759')}

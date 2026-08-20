@@ -129,6 +129,8 @@ export const getAdminUserClients = (userId) => api.get(`/admin/users/${userId}/c
 export const createAdminUserClient = (userId, name) => api.post(`/admin/users/${userId}/clients`, { name });
 export const connectAdminClient = (id) => api.post(`/admin/clients/${id}/connect`);
 export const getAdminClientQrShareLink = (id) => api.get(`/admin/clients/${id}/qr-share-link`);
+export const getAdminUserCredentials = (userId) => api.get(`/admin/users/${userId}/credentials`);
+export const regenerateAdminUserToken = (userId) => api.post(`/admin/users/${userId}/credentials/regenerate`);
 export const getClientPlans = () => api.get('/auth/plans');
 export const getSubscription = () => api.get('/auth/subscription');
 export const requestSubscription = (planId) => api.post('/auth/subscription/request', { planId });
