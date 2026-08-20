@@ -89,10 +89,17 @@ export default function AdminUsersPage() {
 
   const actionUser = users.find((u) => u._id === actionUserId) || null;
 
-  const filtered = users.filter(u =>
-    u.name?.toLowerCase().includes(search.toLowerCase()) ||
-    u.email?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = users.filter((u) => {
+    const q = search.toLowerCase();
+    const phoneMatch = (u.phones || []).some((item) =>
+      String(item.phone || '').toLowerCase().includes(q)
+    );
+    return (
+      u.name?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q) ||
+      phoneMatch
+    );
+  });
 
   if (loading) return <div>Loading users...</div>;
 
@@ -104,7 +111,7 @@ export default function AdminUsersPage() {
           <p style={{ color: '#666', margin: '4px 0 0', fontSize: 14 }}>{users.length} total users</p>
         </div>
         <input
-          type="text" placeholder="Search users..." value={search}
+          type="text" placeholder="Search users or phone..." value={search}
           onChange={e => setSearch(e.target.value)}
           style={{
             padding: '10px 16px', borderRadius: 8, border: '1px solid #ddd',
@@ -118,11 +125,9 @@ export default function AdminUsersPage() {
           <thead>
             <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #e0e0e0' }}>
               <th style={thStyle}>User</th>
-              <th style={thStyle}>Role</th>
+              <th style={thStyle}>Phone</th>
               <th style={thStyle}>Plan</th>
               <th style={thStyle}>Message Balance</th>
-              <th style={thStyle}>Messages Sent</th>
-              <th style={thStyle}>Clients</th>
               <th style={thStyle}>Status</th>
               <th style={thStyle}>Actions</th>
             </tr>
@@ -145,18 +150,25 @@ export default function AdminUsersPage() {
                   {user.parentUserId ? (
                     <div style={{ fontSize: 11, color: '#999' }}>Shares owner WhatsApp</div>
                   ) : null}
-                </td>
-                <td style={tdStyle}>
-                  <span style={{
-                    padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 500,
-                    background: user.role === 'admin' ? '#5856d622' : '#25d36622',
-                    color: user.role === 'admin' ? '#5856d6' : '#25d366'
-                  }}>
-                    {user.role}
-                  </span>
-                    {user.isServiceAccount || user.parentUserId ? (
+                  {user.isServiceAccount || user.parentUserId ? (
                     <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>service login</div>
                   ) : null}
+                </td>
+                <td style={tdStyle}>
+                  {(user.phones || []).length ? (
+                    <div style={{ display: 'grid', gap: 4 }}>
+                      {user.phones.map((item) => (
+                        <div key={item.phone} style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+                          <div style={{ fontWeight: 600 }}>{item.phone}</div>
+                          <div style={{ fontSize: 11, color: item.status === 'connected' ? '#34c759' : '#999' }}>
+                            {item.status === 'connected' ? 'Connected' : (item.name || item.status || '')}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span style={{ color: '#999' }}>—</span>
+                  )}
                 </td>
                 <td style={tdStyle}>
                   {user.role === 'admin' ? (
@@ -211,11 +223,6 @@ export default function AdminUsersPage() {
                     {user.messageBalance}
                   </span>
                 </td>
-                <td style={tdStyle}>
-                  <div>{user.stats?.sentCount || 0} sent</div>
-                  <div style={{ fontSize: 12, color: '#999' }}>{user.stats?.failedCount || 0} failed</div>
-                </td>
-                <td style={tdStyle}>{user.clientCount || 0}</td>
                 <td style={tdStyle}>
                   <span style={{
                     padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 500,
