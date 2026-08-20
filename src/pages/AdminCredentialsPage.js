@@ -195,7 +195,7 @@ export default function AdminCredentialsPage() {
         <div style={{ color: '#475569', fontSize: 14, marginTop: 4 }}>{data.account.email}</div>
         {data.sharesOwnerWhatsApp ? (
           <div style={{ marginTop: 10, fontSize: 13, color: '#166534', background: '#dcfce7', padding: '8px 12px', borderRadius: 8 }}>
-            This login uses the owner WhatsApp ({data.owner?.email}). Its token bills this source plan.
+            Token and Client ID are from the main owner ({data.owner?.email}). Send source <strong>{data.source || 'this source'}</strong> so billing uses this login’s plan.
           </div>
         ) : null}
         {data.source ? (
@@ -211,7 +211,7 @@ export default function AdminCredentialsPage() {
         <SecretField label="OTP endpoint" help="POST this URL" value={data.otpUrl} />
         <SecretField
           label="Token"
-          help="WHATSAPP_NODE_TOKEN · keep private"
+          help={data.sharesOwnerWhatsApp ? 'WHATSAPP_NODE_TOKEN · owner token' : 'WHATSAPP_NODE_TOKEN · keep private'}
           value={data.token}
           secret
         />
@@ -238,7 +238,7 @@ export default function AdminCredentialsPage() {
       <section style={card}>
         <h3 style={sectionTitle}>WhatsApp client ID</h3>
         <p style={{ color: '#64748b', fontSize: 14, margin: '0 0 16px', lineHeight: 1.5 }}>
-          Use the connected client ID as <strong>WHATSAPP_NODE_CLIENT_ID</strong>.
+          Use the connected owner client ID as <strong>WHATSAPP_NODE_CLIENT_ID</strong>.
         </p>
         {data.clients.length === 0 ? (
           <div style={{ color: '#64748b', fontSize: 14 }}>
@@ -264,7 +264,7 @@ export default function AdminCredentialsPage() {
                     </div>
                   </div>
                 </div>
-                <SecretField label="Client ID" help="WHATSAPP_NODE_CLIENT_ID" value={client.clientId} />
+                <SecretField label="Client ID" help="WHATSAPP_NODE_CLIENT_ID" value={client._id} />
               </div>
             ))}
           </div>
