@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { getLogs, getLogStats } from '../services/api';
+import { toast } from 'react-toastify';
+import { getLogs, getLogStats, getClientPlans, requestSubscription } from '../services/api';
 import useAuthStore from '../store/authStore';
 
 const StatCard = ({ label, value, color, hint }) => (
@@ -26,16 +27,27 @@ const statusColors = {
 
 export default function StatsPage() {
   const { user, loadUser } = useAuthStore();
+  const sub = user?.subscription || {};
   const lockedSource = user?.source || '';
+  const enabledSources = sub.enabledSources || [];
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
   const [bySource, setBySource] = useState([]);
-  const [sourceFilter, setSourceFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState(lockedSource);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [plans, setPlans] = useState([]);
+  const [requestingId, setRequestingId] = useState('');
 
-  const activeSource = lockedSource || sourceFilter;
+  useEffect(() => {
+    if (lockedSource && !sourceFilter) setSourceFilter(lockedSource);
+  }, [lockedSource, sourceFilter]);
+
+  const switchable = enabledSources.length >= 2;
+  const activeSource = switchable
+    ? (sourceFilter || lockedSource || enabledSources[0] || '')
+    : (lockedSource || sourceFilter || enabledSources[0] || '');
 
   const load = useCallback(async (p = 1) => {
     setLoading(true);
@@ -64,16 +76,131 @@ export default function StatsPage() {
     load(1);
   }, [load]);
 
+  useEffect(() => {
+    getClientPlans()
+      .then(({ data }) => setPlans(data.plans || []))
+      .catch(() => {});
+  }, []);
+
+  const handleRequestPlan = async (planId) => {
+    setRequestingId(planId);
+    try {
+      const { data } = await requestSubscription(planId);
+      toast.success(data.message || 'Plan requested');
+      await loadUser();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Could not request this plan');
+    } finally {
+      setRequestingId('');
+    }
+  };
+
   const balance = user?.messageBalance ?? 0;
   const sent = stats?.sent || 0;
 
   return (
     <div>
       <h2 style={{ margin: '0 0 24px', color: '#1a1a2e' }}>
-        {lockedSource ? `${lockedSource} message stats` : 'My message stats'}
+        {activeSource ? `${activeSource} message stats` : 'My message stats'}
       </h2>
 
-      {!lockedSource ? (
+      {sub.status === 'pending' && sub.requestedPlan ? (
+        <div style={{
+          background: '#fff7ed',
+          border: '1px solid #fdba74',
+          color: '#9a3412',
+          padding: '14px 18px',
+          borderRadius: 10,
+          marginBottom: 20,
+          fontSize: 14
+        }}>
+          Requested <strong>{sub.requestedPlan.name}</strong> ({sub.requestedPlan.messageQuota} messages, {sub.requestedPlan.sourceLimit} sources). Waiting for admin to confirm.
+        </div>
+      ) : null}
+
+      {sub.status !== 'active' && sub.status !== 'pending' ? (
+        <div style={{ marginBottom: 28 }}>
+          <h3 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Choose a plan</h3>
+          <p style={{ color: '#666', fontSize: 14, margin: '0 0 16px' }}>
+            Pick Mini, Medium, or Max. An admin confirms it, then you get that message quota and source slots.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            {plans.map((plan) => (
+              <div key={plan._id} style={{
+                background: '#fff',
+                borderRadius: 12,
+                padding: 18,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+              }}>
+                <div style={{ fontWeight: 700, fontSize: 18, color: '#1a1a2e' }}>{plan.name}</div>
+                <div style={{ fontSize: 28, fontWeight: 700, color: '#16a34a', margin: '8px 0 4px' }}>{plan.messageQuota}</div>
+                <div style={{ color: '#666', fontSize: 13 }}>messages</div>
+                <div style={{ color: '#666', fontSize: 13, marginTop: 8 }}>{plan.sourceLimit} source{plan.sourceLimit === 1 ? '' : 's'}</div>
+                <button
+                  type="button"
+                  onClick={() => handleRequestPlan(plan._id)}
+                  disabled={Boolean(requestingId)}
+                  style={{
+                    marginTop: 14,
+                    width: '100%',
+                    minHeight: 44,
+                    border: 'none',
+                    borderRadius: 8,
+                    background: '#16a34a',
+                    color: '#fff',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {requestingId === plan._id ? 'Sending...' : `Request ${plan.name}`}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {sub.status === 'active' && sub.plan ? (
+        <div style={{
+          background: '#fff',
+          borderRadius: 10,
+          padding: '14px 18px',
+          marginBottom: 20,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          fontSize: 14,
+          color: '#444'
+        }}>
+          Plan: <strong>{sub.plan.name}</strong> · {sub.plan.messageQuota} messages · {sub.plan.sourceLimit} sources
+          {enabledSources.length ? ` · enabled: ${enabledSources.join(', ')}` : ''}
+        </div>
+      ) : null}
+
+      {switchable ? (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#444', marginBottom: 8 }}>Source</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {enabledSources.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setSourceFilter(name)}
+                style={{
+                  minHeight: 44,
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  border: '1px solid #ddd',
+                  background: activeSource === name ? '#16a34a' : '#fff',
+                  color: activeSource === name ? '#fff' : '#333',
+                  fontWeight: 600
+                }}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : !lockedSource ? (
         <div style={{ marginBottom: 24 }}>
           <label htmlFor="source-filter" style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#444', marginBottom: 6 }}>
             Source
@@ -82,7 +209,7 @@ export default function StatsPage() {
             id="source-filter"
             value={sourceFilter}
             onChange={(e) => setSourceFilter(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, minWidth: 220 }}
+            style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', fontSize: 13, minWidth: 220, minHeight: 44 }}
           >
             <option value="">All sources</option>
             {bySource.filter((row) => row.source && row.source !== '_untagged').map((row) => (
@@ -91,6 +218,19 @@ export default function StatsPage() {
               </option>
             ))}
           </select>
+        </div>
+      ) : null}
+
+      {lockedSource && enabledSources.length > 0 && !enabledSources.includes(lockedSource) ? (
+        <div style={{
+          background: '#fff7ed',
+          color: '#9a3412',
+          padding: '14px 18px',
+          borderRadius: 10,
+          marginBottom: 20,
+          fontSize: 14
+        }}>
+          Source <strong>{lockedSource}</strong> is not enabled on this plan. Ask an admin to turn it on.
         </div>
       ) : null}
 
@@ -118,7 +258,7 @@ export default function StatsPage() {
           label="Messages remaining"
           value={balance}
           color={balance > 50 ? '#34c759' : balance > 10 ? '#ff9500' : '#ff3b30'}
-          hint="How many this account can still send"
+          hint={sub.status === 'active' ? 'Shared plan quota remaining' : 'How many this account can still send'}
         />
         <StatCard
           label="Messages sent"

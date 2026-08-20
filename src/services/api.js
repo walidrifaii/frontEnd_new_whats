@@ -119,5 +119,12 @@ export const toggleUserActive = (id) => api.patch(`/admin/users/${id}/toggle-act
 export const getAdminStats = () => api.get('/admin/stats');
 export const createServiceAccount = (parentId, data) =>
   api.post(`/admin/users/${parentId}/service-accounts`, data);
+export const getAdminPlans = () => api.get('/admin/plans');
+export const updateAdminPlan = (id, data) => api.patch(`/admin/plans/${id}`, data);
+export const assignUserPlan = (id, data) => api.patch(`/admin/users/${id}/plan`, data);
+export const updateUserSources = (id, sources) => api.patch(`/admin/users/${id}/sources`, { sources });
+export const getClientPlans = () => api.get('/auth/plans');
+export const getSubscription = () => api.get('/auth/subscription');
+export const requestSubscription = (planId) => api.post('/auth/subscription/request', { planId });
 
 export default api;

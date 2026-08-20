@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { getAdminUsers, updateUserBalance, addUserBalance, toggleUserActive, createServiceAccount } from '../services/api';
+import { getAdminUsers, updateUserBalance, addUserBalance, toggleUserActive, createServiceAccount, assignUserPlan, updateUserSources } from '../services/api';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
@@ -17,11 +17,22 @@ export default function AdminUsersPage() {
     source: 'ehkini',
     messageBalance: '0'
   });
+  const [plans, setPlans] = useState([]);
+  const [planDrafts, setPlanDrafts] = useState({});
+  const [sourcesModal, setSourcesModal] = useState(null);
+  const [sourceDraft, setSourceDraft] = useState([]);
+  const [customSource, setCustomSource] = useState('');
 
   const loadUsers = useCallback(async () => {
     try {
       const { data } = await getAdminUsers();
       setUsers(data.users);
+      setPlans(data.plans || []);
+      const drafts = {};
+      (data.users || []).forEach((user) => {
+        drafts[user._id] = user.planId || '';
+      });
+      setPlanDrafts(drafts);
     } catch (err) {
       toast.error('Failed to load users');
     } finally {
@@ -61,6 +72,35 @@ export default function AdminUsersPage() {
     } catch (err) {
       toast.error('Failed to update user');
     }
+  };
+
+  const handleAssignPlan = async (user) => {
+    const planId = planDrafts[user._id] || '';
+    try {
+      await assignUserPlan(user._id, planId ? { planId, refillBalance: true } : { planId: '', refillBalance: false });
+      toast.success(planId ? 'Plan assigned and balance refilled' : 'Plan removed');
+      loadUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to assign plan');
+    }
+  };
+
+  const handleSaveSources = async () => {
+    if (!sourcesModal) return;
+    try {
+      await updateUserSources(sourcesModal._id, sourceDraft);
+      toast.success('Sources updated');
+      setSourcesModal(null);
+      loadUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update sources');
+    }
+  };
+
+  const toggleSourceDraft = (name) => {
+    setSourceDraft((prev) => (
+      prev.includes(name) ? prev.filter((item) => item !== name) : [...prev, name]
+    ));
   };
 
   const handleCreateService = async () => {
@@ -117,6 +157,7 @@ export default function AdminUsersPage() {
             <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #e0e0e0' }}>
               <th style={thStyle}>User</th>
               <th style={thStyle}>Role</th>
+              <th style={thStyle}>Plan</th>
               <th style={thStyle}>Message Balance</th>
               <th style={thStyle}>Messages Sent</th>
               <th style={thStyle}>Clients</th>
@@ -147,9 +188,49 @@ export default function AdminUsersPage() {
                   }}>
                     {user.role}
                   </span>
-                  {user.isServiceAccount || user.parentUserId ? (
+                    {user.isServiceAccount || user.parentUserId ? (
                     <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>service login</div>
                   ) : null}
+                </td>
+                <td style={tdStyle}>
+                  {user.parentUserId || user.role === 'admin' ? (
+                    <span style={{ color: '#999', fontSize: 12 }}>—</span>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 6, minWidth: 180 }}>
+                      <select
+                        value={planDrafts[user._id] || ''}
+                        onChange={(e) => setPlanDrafts((p) => ({ ...p, [user._id]: e.target.value }))}
+                        style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #ddd', fontSize: 12 }}
+                      >
+                        <option value="">No plan</option>
+                        {plans.map((plan) => (
+                          <option key={plan._id} value={plan._id}>
+                            {plan.name} · {plan.messageQuota} msg · {plan.sourceLimit} src
+                          </option>
+                        ))}
+                      </select>
+                      <div style={{ fontSize: 11, color: user.planStatus === 'pending' ? '#ff9500' : '#666' }}>
+                        {user.planStatus === 'pending' ? 'Waiting for confirm' : (user.plan?.name || 'None')}
+                        {user.enabledSources?.length ? ` · ${user.enabledSources.join(', ')}` : ''}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button type="button" onClick={() => handleAssignPlan(user)} style={btnStyle('#5856d6')}>
+                          Apply plan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSourcesModal(user);
+                            setSourceDraft(user.enabledSources || []);
+                            setCustomSource('');
+                          }}
+                          style={btnStyle('#007aff')}
+                        >
+                          Sources
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </td>
                 <td style={tdStyle}>
                   <span style={{
@@ -407,6 +488,89 @@ export default function AdminUsersPage() {
                 }}
               >
                 Create login
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sourcesModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 12, padding: 32, minWidth: 420, maxWidth: '90vw',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)'
+          }}>
+            <h3 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Enable sources</h3>
+            <p style={{ color: '#666', fontSize: 14, margin: '0 0 16px' }}>
+              For <strong>{sourcesModal.name}</strong>.
+              {sourcesModal.plan
+                ? ` ${sourcesModal.plan.name} allows ${sourcesModal.plan.sourceLimit} source(s).`
+                : ' Assign a plan first if you want a source limit.'}
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              {[...new Set([...(sourcesModal.sourceCatalog || ['ehkini', 'solv']), ...sourceDraft])].map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => toggleSourceDraft(name)}
+                  style={{
+                    padding: '10px 14px',
+                    minHeight: 44,
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    border: '1px solid #ddd',
+                    background: sourceDraft.includes(name) ? '#25d366' : '#fff',
+                    color: sourceDraft.includes(name) ? '#fff' : '#333',
+                    fontWeight: 600
+                  }}
+                >
+                  {sourceDraft.includes(name) ? `${name} on` : `${name} off`}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              <input
+                placeholder="Add another source"
+                value={customSource}
+                onChange={(e) => setCustomSource(e.target.value)}
+                style={{
+                  flex: 1, padding: '10px 12px', borderRadius: 8,
+                  border: '1px solid #ddd', fontSize: 14
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const name = String(customSource || '').trim().toLowerCase();
+                  if (!name) return;
+                  if (!sourceDraft.includes(name)) setSourceDraft((p) => [...p, name]);
+                  setCustomSource('');
+                }}
+                style={{ padding: '10px 14px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
+              >
+                Add
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setSourcesModal(null)}
+                style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveSources}
+                style={{
+                  padding: '10px 24px', minHeight: 44, borderRadius: 8, border: 'none',
+                  background: '#007aff', color: '#fff', cursor: 'pointer', fontWeight: 600
+                }}
+              >
+                Save sources
               </button>
             </div>
           </div>

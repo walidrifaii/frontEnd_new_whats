@@ -13,6 +13,7 @@ import CampaignDetailPage from './pages/CampaignDetailPage';
 import LogsPage from './pages/LogsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import AdminPlansPage from './pages/AdminPlansPage';
 import StatsPage from './pages/StatsPage';
 import StatsLoginPage from './pages/StatsLoginPage';
 import Layout from './components/Layout';
@@ -77,6 +78,7 @@ function App() {
           <Route path="logs" element={<LogsPage />} />
           <Route path="admin" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />
           <Route path="admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
+          <Route path="admin/plans" element={<AdminRoute><AdminPlansPage /></AdminRoute>} />
         </Route>
       </Routes>
     </BrowserRouter>

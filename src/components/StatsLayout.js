@@ -33,6 +33,7 @@ export default function StatsLayout() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ fontSize: 13, color: '#bbf7d0' }}>
             Remaining: <strong>{user?.messageBalance ?? 0}</strong>
+            {user?.subscription?.plan?.name ? ` · ${user.subscription.plan.name}` : ''}
           </div>
           <button
             type="button"
