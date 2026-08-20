@@ -31,6 +31,7 @@ export default function StatsPage() {
   const lockedSource = user?.source || '';
   const isLocked = Boolean(lockedSource);
   const enabledSources = sub.enabledSources || [];
+  const sharesOwnerWhatsApp = Boolean(user?.parentUserId || sub.sharesOwnerWhatsApp);
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
   const [total, setTotal] = useState(0);
@@ -126,7 +127,7 @@ export default function StatsPage() {
           marginBottom: 20,
           fontSize: 14
         }}>
-          Requested <strong>{sub.requestedPlan.name}</strong> ({sub.requestedPlan.messageQuota} messages, {sub.requestedPlan.sourceLimit} sources). Waiting for admin to confirm.
+          Requested <strong>{sub.requestedPlan.name}</strong> ({sub.requestedPlan.messageQuota} messages{sharesOwnerWhatsApp || !sub.requestedPlan.sourceLimit ? '' : `, ${sub.requestedPlan.sourceLimit} sources`}). Waiting for admin to confirm.
         </div>
       ) : null}
 
@@ -134,7 +135,8 @@ export default function StatsPage() {
         <div style={{ marginBottom: 28 }}>
           <h3 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Choose a plan</h3>
           <p style={{ color: '#666', fontSize: 14, margin: '0 0 16px' }}>
-            Pick Mini, Medium, or Max. An admin confirms it, then you get that message quota and source slots.
+            Pick Mini, Medium, or Max. An admin confirms it, then you get that message quota
+            {sharesOwnerWhatsApp ? '. WhatsApp stays on the owner account.' : ' and source slots.'}
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
             {plans.map((plan) => (
@@ -147,7 +149,11 @@ export default function StatsPage() {
                 <div style={{ fontWeight: 700, fontSize: 18, color: '#1a1a2e' }}>{plan.name}</div>
                 <div style={{ fontSize: 28, fontWeight: 700, color: '#16a34a', margin: '8px 0 4px' }}>{plan.messageQuota}</div>
                 <div style={{ color: '#666', fontSize: 13 }}>messages</div>
-                <div style={{ color: '#666', fontSize: 13, marginTop: 8 }}>{plan.sourceLimit} source{plan.sourceLimit === 1 ? '' : 's'}</div>
+                {sharesOwnerWhatsApp ? (
+                  <div style={{ color: '#666', fontSize: 13, marginTop: 8 }}>Uses owner WhatsApp</div>
+                ) : (
+                  <div style={{ color: '#666', fontSize: 13, marginTop: 8 }}>{plan.sourceLimit} source{plan.sourceLimit === 1 ? '' : 's'}</div>
+                )}
                 <button
                   type="button"
                   onClick={() => handleRequestPlan(plan._id)}
@@ -182,8 +188,11 @@ export default function StatsPage() {
           fontSize: 14,
           color: '#444'
         }}>
-          Plan: <strong>{sub.plan.name}</strong> · {sub.plan.messageQuota} messages · {sub.plan.sourceLimit} sources
-          {enabledSources.length ? ` · enabled: ${enabledSources.join(', ')}` : ''}
+          Plan: <strong>{sub.plan.name}</strong> · {sub.plan.messageQuota} messages
+          {sharesOwnerWhatsApp
+            ? ' · uses owner WhatsApp'
+            : (sub.plan.sourceLimit ? ` · ${sub.plan.sourceLimit} sources` : '')}
+          {!sharesOwnerWhatsApp && enabledSources.length ? ` · enabled: ${enabledSources.join(', ')}` : ''}
         </div>
       ) : null}
 
@@ -249,7 +258,9 @@ export default function StatsPage() {
           label="Messages remaining"
           value={balance}
           color={balance > 50 ? '#34c759' : balance > 10 ? '#ff9500' : '#ff3b30'}
-          hint={sub.status === 'active' ? 'Shared plan quota remaining' : 'How many this account can still send'}
+          hint={sub.status === 'active'
+            ? (sharesOwnerWhatsApp ? 'This source login plan quota remaining' : 'Owner plan quota remaining')
+            : 'How many this account can still send'}
         />
         <StatCard
           label="Messages sent"

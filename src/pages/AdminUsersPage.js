@@ -328,7 +328,7 @@ export default function AdminUsersPage() {
                   ) : null}
                 </td>
                 <td style={tdStyle}>
-                  {user.parentUserId || user.role === 'admin' ? (
+                  {user.role === 'admin' ? (
                     <span style={{ color: '#999', fontSize: 12 }}>—</span>
                   ) : (
                     <div style={{ display: 'grid', gap: 6, minWidth: 180 }}>
@@ -340,25 +340,34 @@ export default function AdminUsersPage() {
                         <option value="">No plan</option>
                         {plans.map((plan) => (
                           <option key={plan._id} value={plan._id}>
-                            {plan.name} · {plan.messageQuota} msg · {plan.sourceLimit} src
+                            {user.parentUserId
+                              ? `${plan.name} · ${plan.messageQuota} msg`
+                              : `${plan.name} · ${plan.messageQuota} msg · ${plan.sourceLimit} src`}
                           </option>
                         ))}
                       </select>
                       <div style={{ fontSize: 11, color: user.planStatus === 'pending' ? '#ff9500' : '#666' }}>
                         {user.planStatus === 'pending' ? 'Waiting for confirm' : (user.plan?.name || 'None')}
-                        {user.enabledSources?.length ? ` · ${user.enabledSources.join(', ')}` : ''}
+                        {!user.parentUserId && user.enabledSources?.length ? ` · ${user.enabledSources.join(', ')}` : ''}
                       </div>
+                      {user.parentUserId ? (
+                        <div style={{ fontSize: 11, color: '#888' }}>
+                          Messages only. WhatsApp is on the owner.
+                        </div>
+                      ) : null}
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <button type="button" onClick={() => handleAssignPlan(user)} style={btnStyle('#5856d6')}>
                           Apply plan
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => openSourcesModal(user)}
-                          style={btnStyle('#007aff')}
-                        >
-                          Sources
-                        </button>
+                        {!user.parentUserId ? (
+                          <button
+                            type="button"
+                            onClick={() => openSourcesModal(user)}
+                            style={btnStyle('#007aff')}
+                          >
+                            Sources
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   )}
