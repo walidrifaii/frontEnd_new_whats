@@ -16,6 +16,7 @@ const useAuthStore = create((set) => ({
   token: localStorage.getItem('token'),
   loading: true,
   statsSource: readStoredSource(),
+  statsSourceOptions: [],
 
   setAuth: (token, user) => {
     localStorage.setItem('token', token);
@@ -31,12 +32,19 @@ const useAuthStore = create((set) => ({
     set({ statsSource: value });
   },
 
+  setStatsSourceOptions: (list) => {
+    const names = [...new Set((Array.isArray(list) ? list : [])
+      .map((item) => String(item || '').trim())
+      .filter((item) => item && item !== '_untagged'))];
+    set({ statsSourceOptions: names });
+  },
+
   logout: () => {
     localStorage.removeItem('token');
     try {
       sessionStorage.removeItem(STATS_SOURCE_KEY);
     } catch (_) { /* ignore */ }
-    set({ token: null, user: null, statsSource: '', loading: false });
+    set({ token: null, user: null, statsSource: '', statsSourceOptions: [], loading: false });
   },
 
   loadUser: async () => {
@@ -55,7 +63,7 @@ const useAuthStore = create((set) => ({
         try {
           sessionStorage.removeItem(STATS_SOURCE_KEY);
         } catch (_) { /* ignore */ }
-        set({ token: null, user: null, statsSource: '', loading: false });
+        set({ token: null, user: null, statsSource: '', statsSourceOptions: [], loading: false });
         return;
       }
       set({ loading: false });

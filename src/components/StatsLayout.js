@@ -2,8 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 
+const uniqueSources = (...lists) => [...new Set(
+  lists.flat().map((item) => String(item || '').trim()).filter((item) => item && item !== '_untagged')
+)];
+
 export default function StatsLayout() {
-  const { user, logout, statsSource, setStatsSource } = useAuthStore();
+  const { user, logout, statsSource, setStatsSource, statsSourceOptions } = useAuthStore();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -11,22 +15,25 @@ export default function StatsLayout() {
   const lockedSource = user?.source || '';
   const isLocked = Boolean(lockedSource);
   const isOwner = !isLocked && !(user?.isServiceAccount || user?.parentUserId);
-  const enabledSources = user?.subscription?.enabledSources || [];
-  const enabledKey = enabledSources.join(',');
-  const canSwitch = !isLocked && enabledSources.length >= 2;
-
+  const switchSources = uniqueSources(
+    statsSourceOptions,
+    user?.subscription?.catalog,
+    user?.subscription?.enabledSources
+  );
+  const switchKey = switchSources.join(',');
+  const canSwitch = !isLocked && switchSources.length >= 2;
   const activeSource = isLocked
     ? lockedSource
-    : (enabledSources.includes(statsSource) ? statsSource : (enabledSources[0] || ''));
+    : (switchSources.includes(statsSource) ? statsSource : (switchSources[0] || ''));
 
   useEffect(() => {
     if (isLocked) return;
-    if (!enabledKey) return;
-    const list = enabledKey.split(',').filter(Boolean);
+    if (!switchKey) return;
+    const list = switchKey.split(',').filter(Boolean);
     if (!list.includes(statsSource)) {
       setStatsSource(list[0]);
     }
-  }, [isLocked, enabledKey, statsSource, setStatsSource]);
+  }, [isLocked, switchKey, statsSource, setStatsSource]);
 
   useEffect(() => {
     const onPointerDown = (event) => {
@@ -104,7 +111,7 @@ export default function StatsLayout() {
                       overflow: 'hidden'
                     }}
                   >
-                    {enabledSources.map((name) => (
+                    {switchSources.map((name) => (
                       <button
                         key={name}
                         type="button"

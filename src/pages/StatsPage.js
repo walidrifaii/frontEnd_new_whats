@@ -26,7 +26,7 @@ const statusColors = {
 };
 
 export default function StatsPage() {
-  const { user, loadUser, statsSource } = useAuthStore();
+  const { user, loadUser, statsSource, setStatsSource, statsSourceOptions, setStatsSourceOptions } = useAuthStore();
   const sub = user?.subscription || {};
   const lockedSource = user?.source || '';
   const isLocked = Boolean(lockedSource);
@@ -39,19 +39,40 @@ export default function StatsPage() {
   const [plans, setPlans] = useState([]);
   const [requestingId, setRequestingId] = useState('');
 
+  const sourceOptions = [...new Set(
+    [lockedSource, ...(enabledSources || []), ...(sub.catalog || []), ...(statsSourceOptions || [])]
+      .map((item) => String(item || '').trim())
+      .filter((item) => item && item !== '_untagged')
+  )];
   const activeSource = isLocked
     ? lockedSource
-    : (enabledSources.includes(statsSource) ? statsSource : (enabledSources[0] || ''));
+    : (sourceOptions.includes(statsSource) ? statsSource : (sourceOptions[0] || ''));
 
   const load = useCallback(async (p = 1) => {
     setLoading(true);
     try {
+      const overview = await getLogStats();
+      const names = [...new Set(
+        [
+          lockedSource,
+          ...(enabledSources || []),
+          ...(sub.catalog || []),
+          ...(overview.data.knownSources || []),
+          ...(overview.data.enabledSources || []),
+          ...(overview.data.bySource || []).map((row) => row.source)
+        ]
+          .map((item) => String(item || '').trim())
+          .filter((item) => item && item !== '_untagged')
+      )];
+      setStatsSourceOptions(names);
+      const source = isLocked
+        ? lockedSource
+        : (names.includes(statsSource) ? statsSource : (names[0] || ''));
       const params = { page: p, limit: 30, direction: 'outgoing', status: 'sent' };
-      if (activeSource) params.source = activeSource;
-      const statsParams = activeSource ? { source: activeSource } : undefined;
+      if (source) params.source = source;
       const [logRes, statsRes] = await Promise.all([
         getLogs(params),
-        getLogStats(statsParams),
+        source ? getLogStats({ source }) : Promise.resolve(overview),
         loadUser()
       ]);
       setLogs(logRes.data.logs || []);
@@ -63,7 +84,7 @@ export default function StatsPage() {
     } finally {
       setLoading(false);
     }
-  }, [loadUser, activeSource]);
+  }, [loadUser, lockedSource, isLocked, statsSource, setStatsSourceOptions]);
 
   useEffect(() => {
     load(1);
@@ -165,6 +186,31 @@ export default function StatsPage() {
         }}>
           Plan: <strong>{sub.plan.name}</strong> · {sub.plan.messageQuota} messages · {sub.plan.sourceLimit} sources
           {enabledSources.length ? ` · enabled: ${enabledSources.join(', ')}` : ''}
+        </div>
+      ) : null}
+
+      {!isLocked && sourceOptions.length > 0 ? (
+        <div style={{ marginBottom: 20 }}>
+          <label htmlFor="stats-source-filter" style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#444', marginBottom: 6 }}>
+            Filter source
+          </label>
+          <select
+            id="stats-source-filter"
+            value={activeSource}
+            onChange={(e) => setStatsSource(e.target.value)}
+            style={{
+              padding: '10px 12px',
+              borderRadius: 8,
+              border: '1px solid #ddd',
+              fontSize: 14,
+              minWidth: 220,
+              minHeight: 44
+            }}
+          >
+            {sourceOptions.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
         </div>
       ) : null}
 
@@ -293,7 +339,7 @@ export default function StatsPage() {
                 {logs.length === 0 ? (
                   <tr>
                     <td colSpan={6} style={{ padding: 40, textAlign: 'center', color: '#999' }}>
-                      No sent messages on this account yet.
+                      No sent messages for {activeSource || 'this source'} yet.
                     </td>
                   </tr>
                 ) : null}
