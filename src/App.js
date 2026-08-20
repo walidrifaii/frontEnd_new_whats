@@ -16,7 +16,6 @@ import AdminUsersPage from './pages/AdminUsersPage';
 import AdminPlansPage from './pages/AdminPlansPage';
 import AdminCredentialsPage from './pages/AdminCredentialsPage';
 import AdminWhatsAppPage from './pages/AdminWhatsAppPage';
-import AdminPhoneNumbersPage from './pages/AdminPhoneNumbersPage';
 import StatsPage from './pages/StatsPage';
 import StatsLoginPage from './pages/StatsLoginPage';
 import Layout from './components/Layout';
@@ -83,7 +82,6 @@ function App() {
           <Route path="admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
           <Route path="admin/users/:userId/credentials" element={<AdminRoute><AdminCredentialsPage /></AdminRoute>} />
           <Route path="admin/users/:userId/whatsapp" element={<AdminRoute><AdminWhatsAppPage /></AdminRoute>} />
-          <Route path="admin/phone-numbers" element={<AdminRoute><AdminPhoneNumbersPage /></AdminRoute>} />
           <Route path="admin/plans" element={<AdminRoute><AdminPlansPage /></AdminRoute>} />
         </Route>
       </Routes>

@@ -27,7 +27,6 @@ export default function Layout() {
   const adminItems = [
     { to: '/admin', label: '🛡️ Admin Dashboard', end: true },
     { to: '/admin/users', label: '👥 Manage Users' },
-    { to: '/admin/phone-numbers', label: 'Manage Phone Numbers' },
     { to: '/admin/plans', label: '💳 Plans' }
   ];
 
