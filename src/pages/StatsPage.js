@@ -26,7 +26,7 @@ const statusColors = {
 };
 
 export default function StatsPage() {
-  const { user, loadUser, statsSource, setStatsSource, statsSourceOptions, setStatsSourceOptions } = useAuthStore();
+  const { user, loadUser, statsSource, statsSourceOptions, setStatsSourceOptions } = useAuthStore();
   const sub = user?.subscription || {};
   const lockedSource = user?.source || '';
   const isLocked = Boolean(lockedSource);
@@ -45,9 +45,7 @@ export default function StatsPage() {
       .map((item) => String(item || '').trim())
       .filter((item) => item && item !== '_untagged')
   )];
-  const activeSource = isLocked
-    ? lockedSource
-    : (sourceOptions.includes(statsSource) ? statsSource : (sourceOptions[0] || ''));
+  const activeSource = isLocked ? lockedSource : (statsSource || '');
 
   const load = useCallback(async (p = 1) => {
     setLoading(true);
@@ -57,16 +55,17 @@ export default function StatsPage() {
         (isLocked
           ? [lockedSource]
           : [
+              'shop',
+              'crm',
               ...(enabledSources || []),
+              ...(overview.data.knownSources || []),
               ...(overview.data.enabledSources || [])
             ])
           .map((item) => String(item || '').trim())
           .filter((item) => item && item !== '_untagged')
       )];
       setStatsSourceOptions(names);
-      const source = isLocked
-        ? lockedSource
-        : (names.includes(statsSource) ? statsSource : (names[0] || ''));
+      const source = isLocked ? lockedSource : (statsSource || '');
       const params = { page: p, limit: 30, direction: 'outgoing', status: 'sent' };
       if (source) params.source = source;
       const [logRes, statsRes] = await Promise.all([
@@ -197,28 +196,11 @@ export default function StatsPage() {
       ) : null}
 
       {!isLocked && sourceOptions.length > 0 ? (
-        <div style={{ marginBottom: 20 }}>
-          <label htmlFor="stats-source-filter" style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#444', marginBottom: 6 }}>
-            Filter source
-          </label>
-          <select
-            id="stats-source-filter"
-            value={activeSource}
-            onChange={(e) => setStatsSource(e.target.value)}
-            style={{
-              padding: '10px 12px',
-              borderRadius: 8,
-              border: '1px solid #ddd',
-              fontSize: 14,
-              minWidth: 220,
-              minHeight: 44
-            }}
-          >
-            {sourceOptions.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
-        </div>
+        <p style={{ color: '#64748b', margin: '0 0 20px', fontSize: 14 }}>
+          {activeSource
+            ? `Showing ${activeSource}. Switch service in the sidebar.`
+            : 'Showing all services. Switch in the sidebar to filter Shop, CRM, or another tag.'}
+        </p>
       ) : null}
 
       {isLocked && enabledSources.length > 0 && !enabledSources.includes(lockedSource) ? (

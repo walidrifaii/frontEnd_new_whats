@@ -84,7 +84,7 @@ export const getClient = (id) => api.get(`/clients/${id}`);
 export const getClientQrShareLink = (id) => api.get(`/clients/${id}/qr-share-link`);
 
 // Campaigns
-export const getCampaigns = () => api.get('/campaigns');
+export const getCampaigns = (params) => api.get('/campaigns', { params });
 export const createCampaign = (data) => api.post('/campaigns', data);
 export const getCampaign = (id) => api.get(`/campaigns/${id}`);
 export const startCampaign = (id) => api.post(`/campaigns/${id}/start`);

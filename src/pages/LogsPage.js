@@ -3,39 +3,41 @@ import { getLogs, getLogStats, getClients } from '../services/api';
 import useAuthStore from '../store/authStore';
 
 export default function LogsPage() {
-  const { user } = useAuthStore();
+  const { user, statsSource, setStatsSourceOptions } = useAuthStore();
   const lockedSource = user?.source || '';
+  const activeSource = lockedSource || statsSource || '';
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
   const [clients, setClients] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ clientId: '', direction: '', status: '', source: '' });
+  const [filters, setFilters] = useState({ clientId: '', direction: '', status: '' });
 
   const load = useCallback(async (p = 1) => {
     setLoading(true);
     try {
       const params = { page: p, limit: 30, ...filters };
+      if (activeSource) params.source = activeSource;
       Object.keys(params).forEach(k => !params[k] && delete params[k]);
       const [l, s] = await Promise.all([getLogs(params), getLogStats(params)]);
       setLogs(l.data.logs);
       setTotal(l.data.total);
       setStats(s.data.stats);
+      setStatsSourceOptions([
+        'shop',
+        'crm',
+        ...(s.data.knownSources || []),
+        ...(s.data.bySource || []).map((row) => row.source)
+      ]);
       setPage(p);
     } catch {}
     finally { setLoading(false); }
-  }, [filters]);
+  }, [filters, activeSource, setStatsSourceOptions]);
 
   useEffect(() => {
     getClients().then(({ data }) => setClients(data.clients));
   }, []);
-
-  useEffect(() => {
-    if (lockedSource) {
-      setFilters((prev) => (prev.source === lockedSource ? prev : { ...prev, source: lockedSource }));
-    }
-  }, [lockedSource]);
 
   useEffect(() => { load(1); }, [load]);
 
@@ -43,7 +45,10 @@ export default function LogsPage() {
 
   return (
     <div>
-      <h2 style={{ margin: '0 0 24px', color: '#1a1a2e' }}>📋 Message Logs</h2>
+      <h2 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Message Logs</h2>
+      <p style={{ color: '#64748b', margin: '0 0 24px', fontSize: 14 }}>
+        {activeSource ? `Showing ${activeSource}. Switch service in the sidebar.` : 'Showing all services. Switch in the sidebar to filter.'}
+      </p>
 
       {/* Stats */}
       {stats && (
@@ -82,27 +87,6 @@ export default function LogsPage() {
           <option value="sent">Sent</option>
           <option value="failed">Failed</option>
           <option value="received">Received</option>
-        </select>
-        <select
-          style={selStyle}
-          value={filters.source}
-          disabled={Boolean(lockedSource)}
-          onChange={e => setFilters(p => ({ ...p, source: e.target.value }))}
-        >
-          {lockedSource ? (
-            <option value={lockedSource}>{lockedSource}</option>
-          ) : (
-            <>
-              <option value="">All Sources</option>
-              {[...new Set([
-                ...(user?.subscription?.enabledSources || [])
-              ])]
-                .filter((name) => name && name !== '_untagged')
-                .map((name) => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
-            </>
-          )}
         </select>
       </div>
 

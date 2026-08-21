@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { getMe } from '../services/api';
 
-const STATS_SOURCE_KEY = 'statsSource';
+const ACTIVE_SERVICE_KEY = 'activeService';
 
 const readStoredSource = () => {
   try {
-    return sessionStorage.getItem(STATS_SOURCE_KEY) || '';
+    return localStorage.getItem(ACTIVE_SERVICE_KEY) || sessionStorage.getItem('statsSource') || '';
   } catch (_) {
     return '';
   }
@@ -16,7 +16,7 @@ const useAuthStore = create((set) => ({
   token: localStorage.getItem('token'),
   loading: true,
   statsSource: readStoredSource(),
-  statsSourceOptions: [],
+  statsSourceOptions: ['shop', 'crm'],
 
   setAuth: (token, user) => {
     localStorage.setItem('token', token);
@@ -26,8 +26,9 @@ const useAuthStore = create((set) => ({
   setStatsSource: (source) => {
     const value = String(source || '');
     try {
-      if (value) sessionStorage.setItem(STATS_SOURCE_KEY, value);
-      else sessionStorage.removeItem(STATS_SOURCE_KEY);
+      if (value) localStorage.setItem(ACTIVE_SERVICE_KEY, value);
+      else localStorage.removeItem(ACTIVE_SERVICE_KEY);
+      sessionStorage.removeItem('statsSource');
     } catch (_) { /* ignore */ }
     set({ statsSource: value });
   },
@@ -42,7 +43,8 @@ const useAuthStore = create((set) => ({
   logout: () => {
     localStorage.removeItem('token');
     try {
-      sessionStorage.removeItem(STATS_SOURCE_KEY);
+      localStorage.removeItem(ACTIVE_SERVICE_KEY);
+      sessionStorage.removeItem('statsSource');
     } catch (_) { /* ignore */ }
     set({ token: null, user: null, statsSource: '', statsSourceOptions: [], loading: false });
   },
@@ -61,7 +63,8 @@ const useAuthStore = create((set) => ({
       if (status === 401) {
         localStorage.removeItem('token');
         try {
-          sessionStorage.removeItem(STATS_SOURCE_KEY);
+          sessionStorage.removeItem('statsSource');
+          localStorage.removeItem('activeService');
         } catch (_) { /* ignore */ }
         set({ token: null, user: null, statsSource: '', statsSourceOptions: [], loading: false });
         return;

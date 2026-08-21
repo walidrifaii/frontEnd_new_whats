@@ -204,7 +204,8 @@ export default function AdminCredentialsPage() {
           </div>
         ) : (
           <div style={{ marginTop: 8, fontSize: 13, color: '#64748b' }}>
-            WHATSAPP_NODE_SOURCE is optional. Billing uses the assigned number’s plan.
+            Use the same token on every Laravel app. Set a different <code>WHATSAPP_NODE_SOURCE</code> per app
+            (<code>shop</code>, <code>crm</code>, …) so the owner can switch services in the dashboard. Billing stays on the assigned number.
           </div>
         )}
       </section>

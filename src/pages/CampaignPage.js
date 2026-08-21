@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { getCampaigns, createCampaign, deleteCampaign, getClients } from '../services/api';
+import useAuthStore from '../store/authStore';
 
 const STATUS_COLORS = {
   draft: '#999', running: '#25d366', paused: '#ff9500',
@@ -10,6 +11,8 @@ const STATUS_COLORS = {
 
 export default function CampaignPage() {
   const navigate = useNavigate();
+  const { statsSource, user } = useAuthStore();
+  const activeSource = user?.source || statsSource || '';
   const [campaigns, setCampaigns] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,8 +22,12 @@ export default function CampaignPage() {
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
-        const [c, cl] = await Promise.all([getCampaigns(), getClients()]);
+        const [c, cl] = await Promise.all([
+          getCampaigns(activeSource ? { source: activeSource } : undefined),
+          getClients()
+        ]);
         setCampaigns(c.data.campaigns);
         setClients(cl.data.clients.filter(c => c.status === 'connected'));
       } catch (e) {
@@ -30,13 +37,16 @@ export default function CampaignPage() {
       }
     };
     load();
-  }, []);
+  }, [activeSource]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
     setCreating(true);
     try {
-      const { data } = await createCampaign(form);
+      const { data } = await createCampaign({
+        ...form,
+        source: activeSource || undefined
+      });
       setCampaigns(prev => [data.campaign, ...prev]);
       setShowForm(false);
       setForm({ name: '', message: '', clientId: '', minDelay: 20000, maxDelay: 30000 });
@@ -62,12 +72,17 @@ export default function CampaignPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h2 style={{ margin: 0, color: '#1a1a2e' }}>📣 Campaigns</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <h2 style={{ margin: 0, color: '#1a1a2e' }}>Campaigns</h2>
         <button onClick={() => setShowForm(!showForm)} style={btnGreen}>
           {showForm ? '✕ Cancel' : '+ New Campaign'}
         </button>
       </div>
+      <p style={{ color: '#64748b', margin: '0 0 24px', fontSize: 14 }}>
+        {activeSource
+          ? `Showing and tagging new campaigns as ${activeSource}. Switch service in the sidebar.`
+          : 'Showing all services. Select Shop or CRM in the sidebar to filter and tag new campaigns.'}
+      </p>
 
       {showForm && (
         <div style={{ background: '#fff', borderRadius: 10, padding: 28, marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
@@ -132,7 +147,8 @@ export default function CampaignPage() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6 }}>{camp.name}</div>
                   <div style={{ fontSize: 13, color: '#666' }}>
-                    📱 {camp.clientId?.name || 'N/A'} · {camp.totalContacts} contacts
+                    {camp.clientId?.name || 'N/A'} · {camp.totalContacts} contacts
+                    {camp.source ? ` · ${camp.source}` : ''}
                   </div>
                   {/* Progress bar */}
                   {camp.totalContacts > 0 && (

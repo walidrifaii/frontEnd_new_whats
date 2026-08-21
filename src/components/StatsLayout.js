@@ -16,21 +16,19 @@ export default function StatsLayout() {
   const isLocked = Boolean(lockedSource);
   const isOwner = !isLocked && !(user?.isServiceAccount || user?.parentUserId);
   const switchSources = uniqueSources(
+    ['shop', 'crm'],
     statsSourceOptions,
     user?.subscription?.enabledSources
   );
   const switchKey = switchSources.join(',');
-  const canSwitch = !isLocked && switchSources.length >= 2;
-  const activeSource = isLocked
-    ? lockedSource
-    : (switchSources.includes(statsSource) ? statsSource : (switchSources[0] || ''));
+  const canSwitch = !isLocked;
+  const activeSource = isLocked ? lockedSource : (statsSource || '');
 
   useEffect(() => {
     if (isLocked) return;
-    if (!switchKey) return;
-    const list = switchKey.split(',').filter(Boolean);
-    if (!list.includes(statsSource)) {
-      setStatsSource(list[0] || '');
+    if (!statsSource) return;
+    if (switchSources.length && !switchSources.includes(statsSource)) {
+      setStatsSource('');
     }
   }, [isLocked, switchKey, statsSource, setStatsSource]);
 
@@ -91,7 +89,7 @@ export default function StatsLayout() {
                   }}
                 >
                   {user?.name || 'Account'}
-                  {activeSource ? ` · ${activeSource}` : ''}
+                  {activeSource ? ` · ${activeSource}` : ' · all services'}
                   <span aria-hidden="true" style={{ fontSize: 10 }}>{menuOpen ? '▲' : '▼'}</span>
                 </button>
                 {menuOpen ? (
@@ -110,6 +108,27 @@ export default function StatsLayout() {
                       overflow: 'hidden'
                     }}
                   >
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={!activeSource}
+                      onClick={() => handleSelectSource('')}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        textAlign: 'left',
+                        minHeight: 44,
+                        padding: '10px 14px',
+                        border: 'none',
+                        background: !activeSource ? '#dcfce7' : '#fff',
+                        color: '#14532d',
+                        fontWeight: !activeSource ? 700 : 500,
+                        cursor: 'pointer',
+                        fontSize: 14
+                      }}
+                    >
+                      All services
+                    </button>
                     {switchSources.map((name) => (
                       <button
                         key={name}

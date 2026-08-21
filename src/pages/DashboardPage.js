@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getClients, getCampaigns, getLogStats } from '../services/api';
 import useAuthStore from '../store/authStore';
-import ServiceAccountsPanel from '../components/ServiceAccountsPanel';
 
 const StatCard = ({ label, value, color, icon }) => (
   <div style={{
@@ -16,15 +15,28 @@ const StatCard = ({ label, value, color, icon }) => (
 );
 
 export default function DashboardPage() {
-  const { user } = useAuthStore();
+  const { user, statsSource, setStatsSourceOptions } = useAuthStore();
+  const activeSource = user?.source || statsSource || '';
   const [data, setData] = useState({ clients: [], campaigns: [], stats: null });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
-        const [c, cam, s] = await Promise.all([getClients(), getCampaigns(), getLogStats()]);
+        const params = activeSource ? { source: activeSource } : undefined;
+        const [c, cam, s] = await Promise.all([
+          getClients(),
+          getCampaigns(params),
+          getLogStats(params)
+        ]);
         setData({ clients: c.data.clients, campaigns: cam.data.campaigns, stats: s.data.stats });
+        setStatsSourceOptions([
+          'shop',
+          'crm',
+          ...(s.data.knownSources || []),
+          ...(s.data.bySource || []).map((row) => row.source)
+        ]);
       } catch (e) {
         console.error(e);
       } finally {
@@ -32,7 +44,7 @@ export default function DashboardPage() {
       }
     };
     load();
-  }, []);
+  }, [activeSource, setStatsSourceOptions]);
 
   if (loading) return <div>Loading dashboard...</div>;
 
@@ -43,8 +55,12 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <h2 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Welcome, {user?.name} 👋</h2>
-      <p style={{ color: '#666', marginBottom: 28 }}>Here's your WhatsApp marketing overview</p>
+      <h2 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Welcome, {user?.name}</h2>
+      <p style={{ color: '#666', marginBottom: 28 }}>
+        {activeSource
+          ? `Overview for ${activeSource}. Switch service in the sidebar.`
+          : 'Overview for all services. Switch Shop or CRM in the sidebar to filter.'}
+      </p>
 
       {balance <= 0 && (
         <div style={{
@@ -111,8 +127,6 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
-
-      <ServiceAccountsPanel />
     </div>
   );
 }
