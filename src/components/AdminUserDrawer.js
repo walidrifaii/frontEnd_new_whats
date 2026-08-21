@@ -8,6 +8,7 @@ import {
   setUserSourceSwitch,
   addUserSource,
   setUserSourceEnabled,
+  setUserSourceNumber,
   deleteUserSource,
   getAdminNumbers,
   assignAdminNumberUser,
@@ -42,6 +43,7 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
   const [assigning, setAssigning] = useState(false);
   const [balanceNumberId, setBalanceNumberId] = useState('');
   const [newSource, setNewSource] = useState('');
+  const [newNumberId, setNewNumberId] = useState('');
   const [savingSource, setSavingSource] = useState(false);
 
   useEffect(() => {
@@ -63,6 +65,10 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
         ));
         const first = (user.assignedNumbers || [])[0];
         setBalanceNumberId(first?._id || '');
+        if (!newNumberId) {
+          const assigned = (user.assignedNumbers || [])[0];
+          setNewNumberId(assigned?._id || '');
+        }
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -74,6 +80,18 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
   const isService = Boolean(user.parentUserId);
   const sourceCatalog = user.sourceCatalog || [];
   const allowSwitch = Boolean(user.allowSourceSwitch);
+  const numberOptions = [];
+  const seenNumbers = new Set();
+  [...(user.assignedNumbers || []), ...poolNumbers].forEach((item) => {
+    if (!item?._id || seenNumbers.has(item._id)) return;
+    seenNumbers.add(item._id);
+    numberOptions.push(item);
+  });
+  const numberLabel = (item) => {
+    if (!item) return 'No number';
+    const phone = item.phone ? `+${item.phone}` : item.name || item._id;
+    return `${phone}${item.status ? ` · ${item.status}` : ''}`;
+  };
 
   const go = (path) => {
     onClose();
@@ -195,17 +213,25 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
   const handleAddSource = async (name) => {
     const source = String(name || newSource || '').trim().toLowerCase();
     if (!source) {
-      toast.error('Enter a source name, for example shop or crm');
+      toast.error('Enter a service name, for example ehkini or ehkini2');
+      return;
+    }
+    if (!newNumberId) {
+      toast.error('Pick a phone number for this service');
       return;
     }
     setSavingSource(true);
     try {
-      const { data } = await addUserSource(user._id, source, true);
+      const { data } = await addUserSource(user._id, {
+        source,
+        phoneNumberId: newNumberId,
+        enabled: true
+      });
       toast.success(data.message || `Added ${source}`);
       setNewSource('');
       onRefresh();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to add source');
+      toast.error(err.response?.data?.error || 'Failed to add service');
     } finally {
       setSavingSource(false);
     }
@@ -214,20 +240,30 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
   const handleToggleSource = async (source, enabled) => {
     try {
       const { data } = await setUserSourceEnabled(user._id, source, enabled);
-      toast.success(data.message || 'Source updated');
+      toast.success(data.message || 'Service updated');
       onRefresh();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to update source');
+      toast.error(err.response?.data?.error || 'Failed to update service');
+    }
+  };
+
+  const handleChangeNumber = async (source, phoneNumberId) => {
+    try {
+      const { data } = await setUserSourceNumber(user._id, source, phoneNumberId);
+      toast.success(data.message || 'Number updated');
+      onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to change number');
     }
   };
 
   const handleRemoveSource = async (source) => {
     try {
       const { data } = await deleteUserSource(user._id, source);
-      toast.success(data.message || 'Source removed');
+      toast.success(data.message || 'Service removed');
       onRefresh();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to remove source');
+      toast.error(err.response?.data?.error || 'Failed to remove service');
     }
   };
 
@@ -296,8 +332,10 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
               background: '#f8fafc',
               border: '1px solid #e2e8f0'
             }}>
-              <h4 style={{ ...heading, marginTop: 0 }}>Sources</h4>
-              <p style={hint}>Only super admin sets this. The client sees switch buttons only if switch is allowed and at least two sources are allowed.</p>
+              <h4 style={{ ...heading, marginTop: 0 }}>Services</h4>
+              <p style={hint}>
+                One email. Each service has a name and a WhatsApp number. Ehkini and ehkini2 can share the same number or use different numbers.
+              </p>
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' }}>
                 <button
@@ -323,59 +361,74 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
                 <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
                   {sourceCatalog.map((item) => (
                     <div key={item.name} style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 8,
-                      alignItems: 'center',
                       background: '#fff',
                       border: '1px solid #e2e8f0',
                       borderRadius: 8,
-                      padding: '8px 10px'
+                      padding: '10px 12px'
                     }}>
-                      <strong>{item.name}</strong>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleSource(item.name, true)}
-                          style={item.enabled ? primaryBtn : ghostBtn}
-                        >
-                          Allowed
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleSource(item.name, false)}
-                          style={!item.enabled ? dangerBtn : ghostBtn}
-                        >
-                          Not allowed
-                        </button>
-                        <button type="button" onClick={() => handleRemoveSource(item.name)} style={ghostBtn}>
-                          Remove
-                        </button>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <strong>{item.name}</strong>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSource(item.name, true)}
+                            style={item.enabled ? primaryBtn : ghostBtn}
+                          >
+                            Allowed
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSource(item.name, false)}
+                            style={!item.enabled ? dangerBtn : ghostBtn}
+                          >
+                            Not allowed
+                          </button>
+                          <button type="button" onClick={() => handleRemoveSource(item.name)} style={ghostBtn}>
+                            Remove
+                          </button>
+                        </div>
                       </div>
+                      <label style={{ ...hint, display: 'block', marginTop: 8 }}>WhatsApp number</label>
+                      <select
+                        value={item.phoneNumberId || ''}
+                        onChange={(e) => handleChangeNumber(item.name, e.target.value)}
+                        style={{ ...fieldStyle, marginTop: 4 }}
+                      >
+                        <option value="">Pick a number</option>
+                        {numberOptions.map((number) => (
+                          <option key={number._id} value={number._id}>{numberLabel(number)}</option>
+                        ))}
+                      </select>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p style={hint}>No sources yet. Add shop and crm, then allow each one.</p>
+                <p style={hint}>No services yet. Add ehkini, pick its number, then add ehkini2.</p>
               )}
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                {['shop', 'crm'].filter((name) => !sourceCatalog.some((item) => item.name === name)).map((name) => (
-                  <button key={name} type="button" disabled={savingSource} onClick={() => handleAddSource(name)} style={ghostBtn}>
-                    Add {name}
-                  </button>
-                ))}
-              </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'grid', gap: 8 }}>
                 <input
-                  placeholder="other source"
+                  placeholder="service name (ehkini or ehkini2)"
                   value={newSource}
                   onChange={(e) => setNewSource(e.target.value)}
-                  style={{ ...fieldStyle, flex: 1, minWidth: 140 }}
+                  style={fieldStyle}
                 />
+                <select
+                  value={newNumberId}
+                  onChange={(e) => setNewNumberId(e.target.value)}
+                  style={fieldStyle}
+                >
+                  <option value="">Pick a phone number</option>
+                  {numberOptions.map((number) => (
+                    <option key={number._id} value={number._id}>{numberLabel(number)}</option>
+                  ))}
+                </select>
                 <button type="button" disabled={savingSource} onClick={() => handleAddSource()} style={primaryBtn}>
-                  {savingSource ? 'Adding...' : 'Add source'}
+                  {savingSource ? 'Adding...' : 'Add service'}
                 </button>
+                {numberOptions.length === 0 ? (
+                  <p style={hint}>Assign a phone number to this client first, then add services.</p>
+                ) : null}
               </div>
             </div>
           ) : null}

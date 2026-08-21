@@ -133,8 +133,8 @@ export default function AdminUsersPage() {
                     <div style={{ fontSize: 12, color: user.allowSourceSwitch ? '#16a34a' : '#64748b', marginTop: 4 }}>
                       {user.allowSourceSwitch ? 'switch allowed' : 'switch not allowed'}
                       {(user.sourceCatalog || []).length
-                        ? ` · ${(user.sourceCatalog || []).map((item) => `${item.name}:${item.enabled ? 'on' : 'off'}`).join(', ')}`
-                        : ' · no sources'}
+                        ? ` · ${(user.sourceCatalog || []).map((item) => `${item.name}:${item.enabled ? 'on' : 'off'}${item.phoneNumber?.phone ? ` (+${item.phoneNumber.phone})` : ''}`).join(', ')}`
+                        : ' · no services'}
                     </div>
                   )}
                   {user.parentUserId ? (

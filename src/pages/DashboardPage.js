@@ -53,7 +53,7 @@ export default function DashboardPage() {
       <p style={{ color: '#666', marginBottom: 28 }}>
         {activeSource
           ? `Overview for ${activeSource}. Switch service in the sidebar.`
-          : 'Overview for all services. Switch Shop or CRM in the sidebar to filter.'}
+          : 'Overview for all services. Switch in the header when admin has allowed two services.'}
       </p>
 
       {balance <= 0 && (

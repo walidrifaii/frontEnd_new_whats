@@ -204,8 +204,8 @@ export default function AdminCredentialsPage() {
           </div>
         ) : (
           <div style={{ marginTop: 8, fontSize: 13, color: '#64748b' }}>
-            Use the same token on every Laravel app. Set a different <code>WHATSAPP_NODE_SOURCE</code> per app
-            (<code>shop</code>, <code>crm</code>, …) so the owner can switch services in the dashboard. Billing stays on the assigned number.
+            One token. Each Laravel app keeps a <strong>fixed</strong> service name and that service’s Client ID.
+            Ehkini and ehkini2 can share a number or use different numbers. Do not swap those values.
           </div>
         )}
       </section>
@@ -240,6 +240,41 @@ export default function AdminCredentialsPage() {
         </button>
       </section>
 
+      {(data.services || []).length ? (
+        <section style={card}>
+          <h3 style={sectionTitle}>Services</h3>
+          <p style={{ color: '#64748b', fontSize: 14, margin: '0 0 16px', lineHeight: 1.5 }}>
+            Copy the block for each Laravel app. <code>WHATSAPP_NODE_SOURCE</code> is the service name and must stay fixed.
+          </p>
+          <div style={{ display: 'grid', gap: 16 }}>
+            {data.services.map((svc) => (
+              <div key={svc.name} style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 14 }}>
+                <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>{svc.name}</div>
+                <div style={{ fontSize: 13, color: svc.enabled ? '#166534' : '#9a3412', marginBottom: 10 }}>
+                  {svc.enabled ? 'Allowed' : 'Not allowed'}
+                  {svc.phoneNumber?.phone ? ` · +${svc.phoneNumber.phone}` : ''}
+                  {svc.phoneNumber?.name ? ` · ${svc.phoneNumber.name}` : ''}
+                </div>
+                <SecretField label="Client ID" help="WHATSAPP_NODE_CLIENT_ID" value={svc.phoneNumberId || ''} />
+                <SecretField label="Source" help="WHATSAPP_NODE_SOURCE · never change" value={svc.name} />
+                <pre style={{
+                  margin: 0,
+                  background: '#0f172a',
+                  color: '#bbf7d0',
+                  borderRadius: 12,
+                  padding: 12,
+                  fontSize: 12,
+                  lineHeight: 1.6,
+                  overflowX: 'auto',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
+                }}>
+                  {svc.laravelEnv}
+                </pre>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : (
       <section style={card}>
         <h3 style={sectionTitle}>WhatsApp client ID</h3>
         <p style={{ color: '#64748b', fontSize: 14, margin: '0 0 16px', lineHeight: 1.5 }}>
@@ -275,6 +310,7 @@ export default function AdminCredentialsPage() {
           </div>
         )}
       </section>
+      )}
 
       <section style={card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>

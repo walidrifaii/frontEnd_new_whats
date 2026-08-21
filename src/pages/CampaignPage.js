@@ -14,6 +14,8 @@ export default function CampaignPage() {
   const { statsSource, user } = useAuthStore();
   const isServiceAccount = Boolean(user?.parentUserId);
   const activeSource = isServiceAccount ? (user?.source || '') : (statsSource || '');
+  const activeService = (user?.subscription?.sources || []).find((item) => item.name === activeSource && item.enabled);
+  const serviceNumberId = activeService?.phoneNumberId || '';
   const [campaigns, setCampaigns] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +41,11 @@ export default function CampaignPage() {
     };
     load();
   }, [activeSource]);
+
+  useEffect(() => {
+    if (!serviceNumberId) return;
+    setForm((prev) => ({ ...prev, clientId: serviceNumberId }));
+  }, [serviceNumberId]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -81,8 +88,8 @@ export default function CampaignPage() {
       </div>
       <p style={{ color: '#64748b', margin: '0 0 24px', fontSize: 14 }}>
         {activeSource
-          ? `Showing and tagging new campaigns as ${activeSource}. Switch service in the sidebar.`
-          : 'Showing all services. Select Shop or CRM in the sidebar to filter and tag new campaigns.'}
+          ? `Showing ${activeSource}${activeService?.phoneNumber?.phone ? ` on +${activeService.phoneNumber.phone}` : ''}. Other numbers still work on WhatsApp Clients.`
+          : 'Showing all services. Switch in the header to filter by ehkini or ehkini2.'}
       </p>
 
       {showForm && (
