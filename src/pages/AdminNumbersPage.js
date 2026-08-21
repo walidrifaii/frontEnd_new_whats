@@ -1,29 +1,29 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import {
-  getAdminNumbers,
-  createAdminNumber,
-  assignAdminNumberPlan,
-  assignAdminNumberUser,
-  connectAdminClient,
-  getAdminClientQrShareLink
-} from '../services/api';
+import { getAdminNumbers, createAdminNumber } from '../services/api';
+
+const statusMeta = (status) => {
+  if (status === 'connected') return { label: 'Connected', color: '#15803d', bg: '#dcfce7' };
+  if (status === 'qr_ready') return { label: 'QR ready', color: '#b45309', bg: '#fef3c7' };
+  if (status === 'initializing') return { label: 'Connecting', color: '#b45309', bg: '#fef3c7' };
+  if (status === 'auth_failure') return { label: 'Auth failed', color: '#b91c1c', bg: '#fee2e2' };
+  return { label: 'Disconnected', color: '#475569', bg: '#f1f5f9' };
+};
+
+const formatPhone = (phone) => (phone ? `+${phone}` : 'Not connected');
 
 export default function AdminNumbersPage() {
+  const navigate = useNavigate();
   const [numbers, setNumbers] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
+  const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
-  const [busyId, setBusyId] = useState('');
-  const [qr, setQr] = useState(null);
 
   const load = useCallback(async () => {
     const { data } = await getAdminNumbers();
     setNumbers(data.numbers || []);
-    setUsers(data.users || []);
-    setPlans(data.plans || []);
     return data.numbers || [];
   }, []);
 
@@ -48,6 +48,21 @@ export default function AdminNumbersPage() {
     return () => clearInterval(timer);
   }, [numbers, load]);
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return numbers;
+    return numbers.filter((item) => {
+      const assigned = (item.assignedUsers || []).map((user) => `${user.name} ${user.email}`).join(' ');
+      return [
+        item.name,
+        item.phone,
+        item.status,
+        item.plan?.name,
+        assigned
+      ].join(' ').toLowerCase().includes(q);
+    });
+  }, [numbers, search]);
+
   const handleCreate = async () => {
     const label = String(name || '').trim();
     if (!label) {
@@ -59,10 +74,12 @@ export default function AdminNumbersPage() {
       const { data } = await createAdminNumber(label);
       toast.success(data.message || 'Number created');
       setName('');
-      await load();
-      if (data.qrShare?.pageUrl) {
-        window.open(data.qrShare.pageUrl, '_blank', 'noopener,noreferrer');
+      const id = data.number?._id;
+      if (id) {
+        navigate(`/admin/numbers/${id}`, { state: { openQr: true } });
+        return;
       }
+      await load();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to create number');
     } finally {
@@ -70,81 +87,18 @@ export default function AdminNumbersPage() {
     }
   };
 
-  const handlePlan = async (number, planId) => {
-    setBusyId(`${number._id}-plan`);
-    try {
-      const { data } = await assignAdminNumberPlan(number._id, {
-        planId,
-        refillBalance: Boolean(planId)
-      });
-      toast.success(data.message || 'Plan updated');
-      await load();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to assign plan');
-    } finally {
-      setBusyId('');
-    }
-  };
-
-  const handleAssign = async (number, userId) => {
-    setBusyId(`${number._id}-user`);
-    try {
-      const { data } = await assignAdminNumberUser(number._id, userId);
-      toast.success(data.message || 'User added to this number');
-      await load();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to assign number');
-    } finally {
-      setBusyId('');
-    }
-  };
-
-  const handleRemoveUser = async (number, userId) => {
-    setBusyId(`${number._id}-user`);
-    try {
-      const { data } = await assignAdminNumberUser(number._id, userId, 'remove');
-      toast.success(data.message || 'User removed');
-      await load();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to remove user');
-    } finally {
-      setBusyId('');
-    }
-  };
-
-  const handleShareQr = async (number) => {
-    setBusyId(`${number._id}-qr`);
-    try {
-      if (['disconnected', 'auth_failure'].includes(number.status)) {
-        await connectAdminClient(number._id);
-        setNumbers((prev) => prev.map((item) => (
-          item._id === number._id ? { ...item, status: 'initializing' } : item
-        )));
-      }
-      const { data } = await getAdminClientQrShareLink(number._id);
-      if (data.qrCode) setQr({ name: number.name, qr: data.qrCode });
-      if (data.pageUrl) {
-        window.open(data.pageUrl, '_blank', 'noopener,noreferrer');
-        toast.success('Opened the QR scan page');
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to open QR page');
-    } finally {
-      setBusyId('');
-    }
-  };
-
   return (
     <div>
       <h2 style={{ margin: '0 0 6px', color: '#0f172a', fontSize: 28 }}>Phone numbers</h2>
-      <p style={{ color: '#475569', fontSize: 15, margin: '0 0 24px', lineHeight: 1.5 }}>
-        Connect numbers here with no user. Apply Mini / Medium / Max to the number, then assign it to one or more users.
+      <p style={{ color: '#475569', fontSize: 15, margin: '0 0 24px', lineHeight: 1.5, maxWidth: 720 }}>
+        Create a number, then open Details to scan QR, set a plan, and assign clients.
       </p>
 
       <section style={card}>
-        <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>Add number to pool</h3>
+        <label htmlFor="number-label" style={labelStyle}>Add number to pool</label>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input
+            id="number-label"
             placeholder="Label, e.g. Main line"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -162,118 +116,80 @@ export default function AdminNumbersPage() {
         </div>
       </section>
 
-      <section style={card}>
+      <section style={{ ...card, padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
+          <label htmlFor="number-search" style={{ ...labelStyle, marginBottom: 8 }}>Search</label>
+          <input
+            id="number-search"
+            type="search"
+            placeholder="Search by label, phone, plan, or client"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ ...inputStyle, width: '100%', maxWidth: 420 }}
+          />
+        </div>
+
         {loading ? (
-          <div style={{ color: '#64748b' }}>Loading numbers...</div>
-        ) : numbers.length === 0 ? (
-          <div style={{ color: '#64748b' }}>No numbers yet. Create one above and scan QR.</div>
+          <div style={{ padding: 32, color: '#64748b' }}>Loading numbers...</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>
+            {numbers.length === 0 ? 'No numbers yet. Create one above and scan QR.' : 'No numbers match this search.'}
+          </div>
         ) : (
-          <div style={{ display: 'grid', gap: 12 }}>
-            {numbers.map((number) => (
-              <div key={number._id} style={row}>
-                <div style={{ minWidth: 180 }}>
-                  <div style={{ fontWeight: 700, color: '#0f172a' }}>{number.name}</div>
-                  <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
-                    {number.phone ? `+${number.phone}` : 'Not connected'}
-                    {' · '}{String(number.status || '').replace('_', ' ')}
-                  </div>
-                  <div style={{ fontSize: 12, color: '#0f766e', marginTop: 6, fontWeight: 600 }}>
-                    Balance: {number.messageBalance ?? 0}
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gap: 8, flex: 1, minWidth: 220 }}>
-                  <select
-                    value={number.planId || ''}
-                    onChange={(e) => handlePlan(number, e.target.value)}
-                    disabled={busyId === `${number._id}-plan`}
-                    style={selectStyle}
-                  >
-                    <option value="">No plan</option>
-                    {plans.map((plan) => (
-                      <option key={plan._id} value={plan._id}>
-                        {plan.name} · {plan.messageQuota} msg · {plan.sourceLimit} src
-                      </option>
-                    ))}
-                  </select>
-                  {(() => {
-                    const assigned = number.assignedUsers || [];
-                    const assignedIds = new Set(assigned.map((item) => item._id));
-                    const available = users.filter((user) => !assignedIds.has(user._id));
-                    return (
-                      <div style={{ display: 'grid', gap: 8 }}>
-                        {assigned.length ? (
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            {assigned.map((item) => (
-                              <span key={item._id} style={chip}>
-                                {item.name || item.email}
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveUser(number, item._id)}
-                                  disabled={busyId === `${number._id}-user`}
-                                  style={chipX}
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: 13, color: '#64748b' }}>Not assigned to any user</span>
-                        )}
-                        {available.length ? (
-                          <select
-                            value=""
-                            onChange={(e) => handleAssign(number, e.target.value)}
-                            disabled={busyId === `${number._id}-user`}
-                            style={selectStyle}
-                          >
-                            <option value="">{assigned.length ? 'Add another user...' : 'Assign to user...'}</option>
-                            {available.map((user) => (
-                              <option key={user._id} value={user._id}>
-                                {user.name} · {user.email}
-                              </option>
-                            ))}
-                          </select>
-                        ) : null}
-                      </div>
-                    );
-                  })()}
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {number.status === 'qr_ready' && number.qrCode ? (
-                    <button type="button" onClick={() => setQr({ name: number.name, qr: number.qrCode })} style={secondaryBtn}>
-                      Show QR
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => handleShareQr(number)}
-                    disabled={busyId === `${number._id}-qr`}
-                    style={primaryBtn}
-                  >
-                    {busyId === `${number._id}-qr` ? 'Opening...' : 'Share QR'}
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 720 }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                  <th style={thStyle}>Label</th>
+                  <th style={thStyle}>Phone</th>
+                  <th style={thStyle}>Status</th>
+                  <th style={thStyle}>Plan</th>
+                  <th style={thStyle}>Balance</th>
+                  <th style={thStyle}>Clients</th>
+                  <th style={thStyle}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((number) => {
+                  const status = statusMeta(number.status);
+                  const assigned = number.assignedUsers || [];
+                  return (
+                    <tr key={number._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={tdStyle}>
+                        <Link to={`/admin/numbers/${number._id}`} style={nameLink}>
+                          {number.name}
+                        </Link>
+                      </td>
+                      <td style={{ ...tdStyle, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+                        {formatPhone(number.phone)}
+                      </td>
+                      <td style={tdStyle}>
+                        <span style={{ ...badge, color: status.color, background: status.bg }}>
+                          {status.label}
+                        </span>
+                      </td>
+                      <td style={tdStyle}>{number.plan?.name || 'No plan'}</td>
+                      <td style={{ ...tdStyle, fontWeight: 700, color: '#0f766e' }}>
+                        {number.messageBalance ?? 0}
+                      </td>
+                      <td style={tdStyle}>
+                        {assigned.length
+                          ? assigned.map((user) => user.name || user.email).join(', ')
+                          : <span style={{ color: '#94a3b8' }}>Unassigned</span>}
+                      </td>
+                      <td style={tdStyle}>
+                        <Link to={`/admin/numbers/${number._id}`} style={detailsBtn}>
+                          Details
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </section>
-
-      {qr ? (
-        <div style={overlay} onClick={() => setQr(null)}>
-          <div style={qrCard} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 8px', color: '#0f172a' }}>Scan WhatsApp QR</h3>
-            <p style={{ color: '#64748b', fontSize: 14, marginBottom: 16 }}>
-              {qr.name}. Open WhatsApp → Linked devices → Link a device.
-            </p>
-            <img src={qr.qr} alt="WhatsApp QR code" style={{ width: 280, height: 280, borderRadius: 8 }} />
-            <div style={{ marginTop: 20 }}>
-              <button type="button" onClick={() => setQr(null)} style={secondaryBtn}>Close</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -286,22 +202,22 @@ const card = {
   border: '1px solid #e2e8f0',
   boxShadow: '0 8px 24px rgba(15,23,42,0.06)'
 };
+const labelStyle = {
+  display: 'block',
+  fontSize: 13,
+  fontWeight: 700,
+  color: '#0f172a',
+  marginBottom: 10
+};
 const inputStyle = {
   flex: 1,
   minWidth: 200,
   minHeight: 44,
   padding: '10px 12px',
   borderRadius: 8,
-  border: '1px solid #ddd',
+  border: '1px solid #cbd5e1',
   fontSize: 14,
   boxSizing: 'border-box'
-};
-const selectStyle = {
-  minHeight: 44,
-  padding: '8px 10px',
-  borderRadius: 8,
-  border: '1px solid #ddd',
-  fontSize: 13
 };
 const primaryBtn = {
   minHeight: 44,
@@ -313,57 +229,42 @@ const primaryBtn = {
   fontWeight: 600,
   cursor: 'pointer'
 };
-const secondaryBtn = {
+const thStyle = {
+  textAlign: 'left',
+  padding: '12px 16px',
+  fontWeight: 600,
+  color: '#475569',
+  fontSize: 13
+};
+const tdStyle = {
+  padding: '14px 16px',
+  verticalAlign: 'middle',
+  color: '#0f172a'
+};
+const badge = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 28,
+  padding: '4px 10px',
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 600
+};
+const nameLink = {
+  color: '#0f172a',
+  fontWeight: 700,
+  textDecoration: 'none'
+};
+const detailsBtn = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
   minHeight: 44,
   padding: '10px 16px',
   borderRadius: 8,
-  border: '1px solid #ddd',
-  background: '#fff',
-  cursor: 'pointer',
-  fontWeight: 600
-};
-const row = {
-  border: '1px solid #e2e8f0',
-  borderRadius: 12,
-  padding: 14,
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: 12,
-  flexWrap: 'wrap',
-  alignItems: 'flex-start'
-};
-const chip = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  background: '#f1f5f9',
-  borderRadius: 999,
-  padding: '6px 8px 6px 12px',
+  background: '#0f172a',
+  color: '#fff',
+  fontWeight: 600,
   fontSize: 13,
-  color: '#0f172a'
-};
-const chipX = {
-  border: 'none',
-  background: 'transparent',
-  cursor: 'pointer',
-  fontSize: 16,
-  lineHeight: 1,
-  color: '#64748b',
-  padding: '0 4px'
-};
-const overlay = {
-  position: 'fixed',
-  inset: 0,
-  background: 'rgba(15,23,42,0.55)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 1100
-};
-const qrCard = {
-  background: '#fff',
-  borderRadius: 16,
-  padding: 32,
-  textAlign: 'center',
-  maxWidth: 360
+  textDecoration: 'none'
 };

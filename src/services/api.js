@@ -131,6 +131,7 @@ export const getAdminUserCredentials = (userId) => api.get(`/admin/users/${userI
 export const regenerateAdminUserToken = (userId) => api.post(`/admin/users/${userId}/credentials/regenerate`);
 export const createAdminUser = (data) => api.post('/admin/users', data);
 export const getAdminNumbers = () => api.get('/admin/numbers');
+export const getAdminNumber = (id) => api.get(`/admin/numbers/${id}`);
 export const createAdminNumber = (name) => api.post('/admin/numbers', { name });
 export const assignAdminNumberPlan = (id, data) => api.patch(`/admin/numbers/${id}/plan`, data);
 export const assignAdminNumberUser = (id, userId, action) =>
