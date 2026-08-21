@@ -28,7 +28,7 @@ const statusColors = {
 export default function StatsPage() {
   const { user, loadUser, statsSource, statsSourceOptions, setStatsSourceOptions } = useAuthStore();
   const sub = user?.subscription || {};
-  const lockedSource = user?.source || '';
+  const lockedSource = user?.parentUserId ? (user?.source || '') : '';
   const isLocked = Boolean(lockedSource);
   const enabledSources = sub.enabledSources || [];
   const sharesOwnerWhatsApp = Boolean(user?.parentUserId || sub.sharesOwnerWhatsApp);
@@ -54,13 +54,7 @@ export default function StatsPage() {
       const names = [...new Set(
         (isLocked
           ? [lockedSource]
-          : [
-              'shop',
-              'crm',
-              ...(enabledSources || []),
-              ...(overview.data.knownSources || []),
-              ...(overview.data.enabledSources || [])
-            ])
+          : [...(enabledSources || []), ...(overview.data.enabledSources || [])])
           .map((item) => String(item || '').trim())
           .filter((item) => item && item !== '_untagged')
       )];

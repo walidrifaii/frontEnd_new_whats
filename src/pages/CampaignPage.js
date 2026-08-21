@@ -12,7 +12,8 @@ const STATUS_COLORS = {
 export default function CampaignPage() {
   const navigate = useNavigate();
   const { statsSource, user } = useAuthStore();
-  const activeSource = user?.source || statsSource || '';
+  const isServiceAccount = Boolean(user?.parentUserId);
+  const activeSource = isServiceAccount ? (user?.source || '') : (statsSource || '');
   const [campaigns, setCampaigns] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
+import ServiceSwitchButtons from './ServiceSwitchButtons';
 
 const uniqueSources = (...lists) => [...new Set(
   lists.flat().map((item) => String(item || '').trim()).filter((item) => item && item !== '_untagged')
@@ -9,46 +10,18 @@ const uniqueSources = (...lists) => [...new Set(
 export default function StatsLayout() {
   const { user, logout, statsSource, setStatsSource, statsSourceOptions } = useAuthStore();
   const navigate = useNavigate();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
 
   const lockedSource = user?.source || '';
-  const isLocked = Boolean(lockedSource);
-  const isOwner = !isLocked && !(user?.isServiceAccount || user?.parentUserId);
-  const switchSources = uniqueSources(
-    ['shop', 'crm'],
-    statsSourceOptions,
-    user?.subscription?.enabledSources
-  );
-  const switchKey = switchSources.join(',');
-  const canSwitch = !isLocked;
+  const isServiceAccount = Boolean(user?.isServiceAccount || user?.parentUserId);
+  const isLocked = Boolean(lockedSource) && isServiceAccount;
+  const isOwner = !isServiceAccount;
+  const switchSources = uniqueSources(user?.subscription?.enabledSources);
+  const canSwitch = Boolean(user?.subscription?.canSwitchSources);
   const activeSource = isLocked ? lockedSource : (statsSource || '');
-
-  useEffect(() => {
-    if (isLocked) return;
-    if (!statsSource) return;
-    if (switchSources.length && !switchSources.includes(statsSource)) {
-      setStatsSource('');
-    }
-  }, [isLocked, switchKey, statsSource, setStatsSource]);
-
-  useEffect(() => {
-    const onPointerDown = (event) => {
-      if (!menuRef.current) return;
-      if (!menuRef.current.contains(event.target)) setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
-  }, []);
 
   const handleLogout = () => {
     logout();
     navigate('/stats-login');
-  };
-
-  const handleSelectSource = (name) => {
-    setStatsSource(name);
-    setMenuOpen(false);
   };
 
   return (
@@ -65,102 +38,9 @@ export default function StatsLayout() {
       }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 16 }}>Message Stats</div>
-          <div ref={menuRef} style={{ position: 'relative', marginTop: 2 }}>
-            {canSwitch ? (
-              <>
-                <button
-                  type="button"
-                  aria-haspopup="listbox"
-                  aria-expanded={menuOpen}
-                  aria-label="Switch source"
-                  onClick={() => setMenuOpen((open) => !open)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: '#86efac',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    padding: '8px 0',
-                    minHeight: 44,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6
-                  }}
-                >
-                  {user?.name || 'Account'}
-                  {activeSource ? ` · ${activeSource}` : ' · all services'}
-                  <span aria-hidden="true" style={{ fontSize: 10 }}>{menuOpen ? '▲' : '▼'}</span>
-                </button>
-                {menuOpen ? (
-                  <div
-                    role="listbox"
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      minWidth: 180,
-                      background: '#fff',
-                      color: '#1a1a2e',
-                      borderRadius: 8,
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
-                      zIndex: 20,
-                      overflow: 'hidden'
-                    }}
-                  >
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={!activeSource}
-                      onClick={() => handleSelectSource('')}
-                      style={{
-                        display: 'block',
-                        width: '100%',
-                        textAlign: 'left',
-                        minHeight: 44,
-                        padding: '10px 14px',
-                        border: 'none',
-                        background: !activeSource ? '#dcfce7' : '#fff',
-                        color: '#14532d',
-                        fontWeight: !activeSource ? 700 : 500,
-                        cursor: 'pointer',
-                        fontSize: 14
-                      }}
-                    >
-                      All services
-                    </button>
-                    {switchSources.map((name) => (
-                      <button
-                        key={name}
-                        type="button"
-                        role="option"
-                        aria-selected={activeSource === name}
-                        onClick={() => handleSelectSource(name)}
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          textAlign: 'left',
-                          minHeight: 44,
-                          padding: '10px 14px',
-                          border: 'none',
-                          background: activeSource === name ? '#dcfce7' : '#fff',
-                          color: '#14532d',
-                          fontWeight: activeSource === name ? 700 : 500,
-                          cursor: 'pointer',
-                          fontSize: 14
-                        }}
-                      >
-                        {name}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <div style={{ fontSize: 12, color: '#86efac' }}>
-                {user?.name || 'User'}{activeSource ? ` · ${activeSource}` : ''}
-              </div>
-            )}
+          <div style={{ fontSize: 12, color: '#86efac', marginTop: 4 }}>
+            {user?.name || 'Account'}
+            {activeSource ? ` · ${activeSource}` : (canSwitch ? ' · all services' : '')}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -203,6 +83,23 @@ export default function StatsLayout() {
           </button>
         </div>
       </header>
+      {canSwitch ? (
+        <div style={{
+          background: '#14532d',
+          padding: '10px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          flexWrap: 'wrap'
+        }}>
+          <strong style={{ color: '#bbf7d0', fontSize: 13 }}>Switch service</strong>
+          <ServiceSwitchButtons
+            value={statsSource}
+            options={switchSources}
+            onChange={setStatsSource}
+          />
+        </div>
+      ) : null}
       <main style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
         <Outlet />
       </main>

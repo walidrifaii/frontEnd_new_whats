@@ -3,8 +3,8 @@ import { getLogs, getLogStats, getClients } from '../services/api';
 import useAuthStore from '../store/authStore';
 
 export default function LogsPage() {
-  const { user, statsSource, setStatsSourceOptions } = useAuthStore();
-  const lockedSource = user?.source || '';
+  const { user, statsSource } = useAuthStore();
+  const lockedSource = user?.parentUserId ? (user?.source || '') : '';
   const activeSource = lockedSource || statsSource || '';
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
@@ -24,16 +24,10 @@ export default function LogsPage() {
       setLogs(l.data.logs);
       setTotal(l.data.total);
       setStats(s.data.stats);
-      setStatsSourceOptions([
-        'shop',
-        'crm',
-        ...(s.data.knownSources || []),
-        ...(s.data.bySource || []).map((row) => row.source)
-      ]);
       setPage(p);
     } catch {}
     finally { setLoading(false); }
-  }, [filters, activeSource, setStatsSourceOptions]);
+  }, [filters, activeSource]);
 
   useEffect(() => {
     getClients().then(({ data }) => setClients(data.clients));

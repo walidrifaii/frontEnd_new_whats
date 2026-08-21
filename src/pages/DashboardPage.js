@@ -15,8 +15,8 @@ const StatCard = ({ label, value, color, icon }) => (
 );
 
 export default function DashboardPage() {
-  const { user, statsSource, setStatsSourceOptions } = useAuthStore();
-  const activeSource = user?.source || statsSource || '';
+  const { user, statsSource } = useAuthStore();
+  const activeSource = user?.parentUserId ? (user?.source || '') : (statsSource || '');
   const [data, setData] = useState({ clients: [], campaigns: [], stats: null });
   const [loading, setLoading] = useState(true);
 
@@ -31,12 +31,6 @@ export default function DashboardPage() {
           getLogStats(params)
         ]);
         setData({ clients: c.data.clients, campaigns: cam.data.campaigns, stats: s.data.stats });
-        setStatsSourceOptions([
-          'shop',
-          'crm',
-          ...(s.data.knownSources || []),
-          ...(s.data.bySource || []).map((row) => row.source)
-        ]);
       } catch (e) {
         console.error(e);
       } finally {
@@ -44,7 +38,7 @@ export default function DashboardPage() {
       }
     };
     load();
-  }, [activeSource, setStatsSourceOptions]);
+  }, [activeSource]);
 
   if (loading) return <div>Loading dashboard...</div>;
 

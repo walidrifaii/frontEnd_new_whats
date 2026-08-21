@@ -126,14 +126,17 @@ export default function AdminUsersPage() {
                   <div style={{ fontWeight: 600 }}>{user.name}</div>
                   <div style={{ fontSize: 12, color: '#888' }}>{user.email}</div>
                   {user.source ? (
-                    <div style={{ fontSize: 12, color: '#25d366', marginTop: 4 }}>
+                    <div style={{ fontSize: 12, color: '#d97706', marginTop: 4 }}>
                       locked source: {user.source}
                     </div>
-                  ) : user.parentUserId ? (
-                    <div style={{ fontSize: 12, color: '#007aff', marginTop: 4 }}>
-                      can switch sources
+                  ) : (
+                    <div style={{ fontSize: 12, color: user.allowSourceSwitch ? '#16a34a' : '#64748b', marginTop: 4 }}>
+                      {user.allowSourceSwitch ? 'switch allowed' : 'switch not allowed'}
+                      {(user.sourceCatalog || []).length
+                        ? ` · ${(user.sourceCatalog || []).map((item) => `${item.name}:${item.enabled ? 'on' : 'off'}`).join(', ')}`
+                        : ' · no sources'}
                     </div>
-                  ) : null}
+                  )}
                   {user.parentUserId ? (
                     <div style={{ fontSize: 11, color: '#999' }}>Shares owner WhatsApp</div>
                   ) : null}

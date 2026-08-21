@@ -5,6 +5,10 @@ import {
   toggleUserActive,
   createServiceAccount,
   setUserSourceLock,
+  setUserSourceSwitch,
+  addUserSource,
+  setUserSourceEnabled,
+  deleteUserSource,
   getAdminNumbers,
   assignAdminNumberUser,
   updateAdminNumberBalance
@@ -37,6 +41,8 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
   const [assignId, setAssignId] = useState('');
   const [assigning, setAssigning] = useState(false);
   const [balanceNumberId, setBalanceNumberId] = useState('');
+  const [newSource, setNewSource] = useState('');
+  const [savingSource, setSavingSource] = useState(false);
 
   useEffect(() => {
     const onKey = (event) => {
@@ -66,6 +72,8 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
 
   const isOwner = !user.parentUserId && user.role !== 'admin';
   const isService = Boolean(user.parentUserId);
+  const sourceCatalog = user.sourceCatalog || [];
+  const allowSwitch = Boolean(user.allowSourceSwitch);
 
   const go = (path) => {
     onClose();
@@ -174,6 +182,55 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
     }
   };
 
+  const handleAllowSwitch = async (allow) => {
+    try {
+      const { data } = await setUserSourceSwitch(user._id, allow);
+      toast.success(data.message || (allow ? 'Switch allowed' : 'Switch blocked'));
+      onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update switch');
+    }
+  };
+
+  const handleAddSource = async (name) => {
+    const source = String(name || newSource || '').trim().toLowerCase();
+    if (!source) {
+      toast.error('Enter a source name, for example shop or crm');
+      return;
+    }
+    setSavingSource(true);
+    try {
+      const { data } = await addUserSource(user._id, source, true);
+      toast.success(data.message || `Added ${source}`);
+      setNewSource('');
+      onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to add source');
+    } finally {
+      setSavingSource(false);
+    }
+  };
+
+  const handleToggleSource = async (source, enabled) => {
+    try {
+      const { data } = await setUserSourceEnabled(user._id, source, enabled);
+      toast.success(data.message || 'Source updated');
+      onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update source');
+    }
+  };
+
+  const handleRemoveSource = async (source) => {
+    try {
+      const { data } = await deleteUserSource(user._id, source);
+      toast.success(data.message || 'Source removed');
+      onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to remove source');
+    }
+  };
+
   return (
     <div style={overlay} onClick={onClose}>
       <aside
@@ -228,6 +285,98 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
                   Clear source lock
                 </button>
               ) : null}
+            </div>
+          ) : null}
+
+          {isOwner ? (
+            <div style={{
+              marginBottom: 16,
+              padding: 12,
+              borderRadius: 10,
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0'
+            }}>
+              <h4 style={{ ...heading, marginTop: 0 }}>Sources</h4>
+              <p style={hint}>Only super admin sets this. The client sees switch buttons only if switch is allowed and at least two sources are allowed.</p>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' }}>
+                <button
+                  type="button"
+                  onClick={() => handleAllowSwitch(true)}
+                  style={allowSwitch ? primaryBtn : ghostBtn}
+                >
+                  Allow switch
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAllowSwitch(false)}
+                  style={!allowSwitch ? dangerBtn : ghostBtn}
+                >
+                  Do not allow switch
+                </button>
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: allowSwitch ? '#166534' : '#9a3412', marginBottom: 12 }}>
+                {allowSwitch ? 'Switch allowed' : 'Switch not allowed'}
+              </div>
+
+              {sourceCatalog.length ? (
+                <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+                  {sourceCatalog.map((item) => (
+                    <div key={item.name} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      alignItems: 'center',
+                      background: '#fff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 8,
+                      padding: '8px 10px'
+                    }}>
+                      <strong>{item.name}</strong>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSource(item.name, true)}
+                          style={item.enabled ? primaryBtn : ghostBtn}
+                        >
+                          Allowed
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSource(item.name, false)}
+                          style={!item.enabled ? dangerBtn : ghostBtn}
+                        >
+                          Not allowed
+                        </button>
+                        <button type="button" onClick={() => handleRemoveSource(item.name)} style={ghostBtn}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={hint}>No sources yet. Add shop and crm, then allow each one.</p>
+              )}
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                {['shop', 'crm'].filter((name) => !sourceCatalog.some((item) => item.name === name)).map((name) => (
+                  <button key={name} type="button" disabled={savingSource} onClick={() => handleAddSource(name)} style={ghostBtn}>
+                    Add {name}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input
+                  placeholder="other source"
+                  value={newSource}
+                  onChange={(e) => setNewSource(e.target.value)}
+                  style={{ ...fieldStyle, flex: 1, minWidth: 140 }}
+                />
+                <button type="button" disabled={savingSource} onClick={() => handleAddSource()} style={primaryBtn}>
+                  {savingSource ? 'Adding...' : 'Add source'}
+                </button>
+              </div>
             </div>
           ) : null}
 

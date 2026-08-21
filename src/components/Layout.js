@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
-import { getLogStats } from '../services/api';
+import ServiceSwitchButtons from './ServiceSwitchButtons';
 
 const IconPhone = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -55,27 +55,18 @@ export default function Layout() {
 
   const isAdmin = user?.isAdmin || user?.role === 'admin';
   const isServiceAccount = Boolean(user?.isServiceAccount || user?.parentUserId);
-  const lockedSource = user?.source || '';
-  const canSwitchService = !isAdmin && !lockedSource;
+  const enabledSources = user?.subscription?.enabledSources || [];
+  const canSwitchService = !isAdmin && !isServiceAccount && Boolean(user?.subscription?.canSwitchSources);
 
   useEffect(() => {
-    if (!canSwitchService) return;
-    let cancelled = false;
-    getLogStats()
-      .then(({ data }) => {
-        if (cancelled) return;
-        const names = [
-          'shop',
-          'crm',
-          ...(data.knownSources || []),
-          ...(data.enabledSources || []),
-          ...(data.bySource || []).map((row) => row.source)
-        ];
-        setStatsSourceOptions(names);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [canSwitchService, setStatsSourceOptions]);
+    setStatsSourceOptions(enabledSources);
+    if (statsSource && enabledSources.length && !enabledSources.includes(statsSource)) {
+      setStatsSource('');
+    }
+    if (!canSwitchService && statsSource) {
+      setStatsSource('');
+    }
+  }, [canSwitchService, enabledSources.join(','), statsSource, setStatsSource, setStatsSourceOptions]);
 
   const navItems = isServiceAccount
     ? [
@@ -147,38 +138,17 @@ export default function Layout() {
                 Balance: {user?.messageBalance ?? 0} messages
               </div>
             )}
-            {!isAdmin && user?.source && (
-              <div style={{ color: '#25d366', fontSize: 11, marginBottom: 8 }}>
-                Service: {user.source}
-              </div>
-            )}
             {canSwitchService ? (
               <div style={{ marginBottom: 12 }}>
-                <label htmlFor="sidebar-service" style={{ display: 'block', fontSize: 11, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>
-                  Service
-                </label>
-                <select
-                  id="sidebar-service"
-                  aria-label="Switch service"
+                <div style={{ fontSize: 11, color: '#888', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
+                  Switch service
+                </div>
+                <ServiceSwitchButtons
+                  dark
                   value={statsSource}
-                  onChange={(e) => setStatsSource(e.target.value)}
-                  style={{
-                    width: '100%',
-                    minHeight: 44,
-                    padding: '8px 10px',
-                    borderRadius: 8,
-                    border: '1px solid #334155',
-                    background: '#0d0d1f',
-                    color: '#eee',
-                    fontSize: 13,
-                    cursor: 'pointer'
-                  }}
-                >
-                  <option value="">All services</option>
-                  {statsSourceOptions.map((name) => (
-                    <option key={name} value={name}>{name}</option>
-                  ))}
-                </select>
+                  options={statsSourceOptions}
+                  onChange={setStatsSource}
+                />
               </div>
             ) : null}
             {isAdmin && (
@@ -226,33 +196,25 @@ export default function Layout() {
             ☰
           </button>
           <span style={{ fontWeight: 600, color: '#333', flex: 1 }}>WhatsApp Marketing SaaS</span>
-          {canSwitchService ? (
-            <label htmlFor="header-service" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#475569' }}>
-              Service
-              <select
-                id="header-service"
-                aria-label="Switch service"
-                value={statsSource}
-                onChange={(e) => setStatsSource(e.target.value)}
-                style={{
-                  minHeight: 44,
-                  minWidth: 160,
-                  padding: '8px 12px',
-                  borderRadius: 8,
-                  border: '1px solid #d0d5dd',
-                  background: '#fff',
-                  fontSize: 14,
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="">All services</option>
-                {statsSourceOptions.map((name) => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
         </header>
+        {canSwitchService ? (
+          <div style={{
+            padding: '10px 24px',
+            background: '#ecfdf3',
+            borderBottom: '1px solid #bbf7d0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            flexWrap: 'wrap'
+          }}>
+            <strong style={{ color: '#14532d', fontSize: 13 }}>Switch service</strong>
+            <ServiceSwitchButtons
+              value={statsSource}
+              options={statsSourceOptions}
+              onChange={setStatsSource}
+            />
+          </div>
+        ) : null}
         <div style={{ flex: 1, overflowY: 'auto', padding: 24, background: '#f4f6f9' }}>
           <Outlet />
         </div>

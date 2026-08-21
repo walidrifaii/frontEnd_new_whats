@@ -16,7 +16,7 @@ const useAuthStore = create((set) => ({
   token: localStorage.getItem('token'),
   loading: true,
   statsSource: readStoredSource(),
-  statsSourceOptions: ['shop', 'crm'],
+  statsSourceOptions: [],
 
   setAuth: (token, user) => {
     localStorage.setItem('token', token);
