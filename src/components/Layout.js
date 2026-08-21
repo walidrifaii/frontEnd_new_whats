@@ -56,7 +56,7 @@ export default function Layout() {
   const isAdmin = user?.isAdmin || user?.role === 'admin';
   const isServiceAccount = Boolean(user?.isServiceAccount || user?.parentUserId);
   const enabledSources = user?.subscription?.enabledSources || [];
-  const canSwitchService = !isAdmin && !isServiceAccount && Boolean(user?.subscription?.canSwitchSources);
+  const canSwitchService = false;
 
   useEffect(() => {
     setStatsSourceOptions(enabledSources);

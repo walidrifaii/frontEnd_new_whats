@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import {
   toggleUserActive,
   createServiceAccount,
+  getAdminServiceAccounts,
   setUserSourceLock,
   setUserSourceSwitch,
   addUserSource,
@@ -38,6 +39,7 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
     messageBalance: '0'
   });
   const [savingService, setSavingService] = useState(false);
+  const [subAccounts, setSubAccounts] = useState([]);
   const [poolNumbers, setPoolNumbers] = useState([]);
   const [assignId, setAssignId] = useState('');
   const [assigning, setAssigning] = useState(false);
@@ -71,6 +73,13 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
         }
       })
       .catch(() => {});
+    getAdminServiceAccounts(user._id)
+      .then(({ data }) => {
+        if (!cancelled) setSubAccounts(data.accounts || []);
+      })
+      .catch(() => {
+        if (!cancelled) setSubAccounts([]);
+      });
     return () => { cancelled = true; };
   }, [user]);
 
@@ -166,7 +175,6 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
   };
 
   const handleCreateService = async () => {
-    const source = String(serviceForm.source || '').trim().toLowerCase();
     if (!serviceForm.name || !serviceForm.email || !serviceForm.password) {
       toast.error('Name, email, and password are required');
       return;
@@ -176,15 +184,15 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
       await createServiceAccount(user._id, {
         name: serviceForm.name,
         email: serviceForm.email,
-        password: serviceForm.password,
-        source,
-        messageBalance: parseInt(serviceForm.messageBalance, 10) || 0
+        password: serviceForm.password
       });
-      toast.success(`Created ${source} login`);
+      toast.success(`${serviceForm.email} can now sign in at /stats-login`);
       setServiceForm({ name: '', email: '', password: '', source: '', messageBalance: '0' });
+      const { data } = await getAdminServiceAccounts(user._id);
+      setSubAccounts(data.accounts || []);
       onRefresh();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to create service login');
+      toast.error(err.response?.data?.error || 'Failed to create stats login');
     } finally {
       setSavingService(false);
     }
@@ -314,11 +322,14 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
           {isService ? (
             <div style={{ marginBottom: 16 }}>
               <div style={hint}>
-                This login {user.source ? `tags sends as ${user.source}` : 'does not lock a source tag'}.
+                This is a stats sub-account. They sign in at /stats-login and use the WhatsApp client they belong to.
+                {user.source
+                  ? ` They are locked to ${user.source}.`
+                  : ' They can switch this client’s services if you allowed switch on the owner.'}
               </div>
               {user.source ? (
                 <button type="button" onClick={() => handleLock(null)} style={{ ...ghostBtn, marginTop: 8 }}>
-                  Clear source lock
+                  Unlock so they can switch
                 </button>
               ) : null}
             </div>
@@ -334,7 +345,7 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
             }}>
               <h4 style={{ ...heading, marginTop: 0 }}>Services</h4>
               <p style={hint}>
-                One email. Each service has a name and a WhatsApp number. Ehkini and ehkini2 can share the same number or use different numbers.
+                These belong to this WhatsApp client. A stats sub-account (like walidrifaii@gmail.com) signs in at /stats-login and switches them if you allow switch. Add, remove, or turn each one on or off here.
               </p>
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '12px 0' }}>
@@ -527,15 +538,36 @@ export default function AdminUserDrawer({ user, onClose, onRefresh }) {
 
         {isOwner ? (
           <section style={section}>
-            <h4 style={heading}>Add service login</h4>
-            <p style={hint}>Creates a login that shares this owner WhatsApp. Source is optional for stats tagging.</p>
+            <h4 style={heading}>Stats sub-accounts</h4>
+            <p style={hint}>
+              Create an email that signs in at /stats-login. That person uses this WhatsApp client and can switch the services above when switch is allowed.
+            </p>
+            {subAccounts.length ? (
+              <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+                {subAccounts.map((item) => (
+                  <div key={item._id} style={{
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 8,
+                    padding: '10px 12px'
+                  }}>
+                    <div style={{ fontWeight: 600 }}>{item.email}</div>
+                    <div style={hint}>
+                      {item.name} · /stats-login · {item.isActive ? 'Active' : 'Disabled'}
+                      {item.source ? ` · locked to ${item.source}` : ' · can switch'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={hint}>No stats login yet. Add one below, for example walidrifaii@gmail.com.</p>
+            )}
             <div style={{ display: 'grid', gap: 10 }}>
-              <input placeholder="Source tag (optional)" value={serviceForm.source} onChange={(e) => setServiceForm((p) => ({ ...p, source: e.target.value }))} style={fieldStyle} />
               <input placeholder="Display name" value={serviceForm.name} onChange={(e) => setServiceForm((p) => ({ ...p, name: e.target.value }))} style={fieldStyle} />
               <input type="email" placeholder="Login email" value={serviceForm.email} onChange={(e) => setServiceForm((p) => ({ ...p, email: e.target.value }))} style={fieldStyle} />
               <input type="password" placeholder="Password (min 6 characters)" value={serviceForm.password} onChange={(e) => setServiceForm((p) => ({ ...p, password: e.target.value }))} style={fieldStyle} />
               <button type="button" onClick={handleCreateService} disabled={savingService} style={primaryBtn}>
-                {savingService ? 'Creating...' : 'Create login'}
+                {savingService ? 'Creating...' : 'Create stats login'}
               </button>
             </div>
           </section>

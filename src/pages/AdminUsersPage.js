@@ -138,10 +138,9 @@ export default function AdminUsersPage() {
                     </div>
                   )}
                   {user.parentUserId ? (
-                    <div style={{ fontSize: 11, color: '#999' }}>Shares owner WhatsApp</div>
-                  ) : null}
-                  {user.isServiceAccount || user.parentUserId ? (
-                    <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>service login</div>
+                    <div style={{ fontSize: 11, color: '#0f766e', marginTop: 4 }}>
+                      stats login · /stats-login
+                    </div>
                   ) : null}
                 </td>
                 <td style={tdStyle}>

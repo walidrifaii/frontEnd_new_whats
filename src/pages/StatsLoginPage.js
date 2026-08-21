@@ -94,8 +94,8 @@ export default function StatsLoginPage() {
           </button>
         </form>
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#666', lineHeight: 1.5 }}>
-          WhatsApp owner? You can sign in here to switch sources, or use
-          {' '}<Link to="/login" style={{ color: '#16a34a' }}>/login</Link> for the old dashboard.
+          This page is for stats sub-accounts. WhatsApp owners sign in at
+          {' '}<Link to="/login" style={{ color: '#16a34a' }}>/login</Link>.
         </p>
       </div>
     </div>
