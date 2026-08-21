@@ -4,7 +4,8 @@ import { toast } from 'react-toastify';
 import {
   getAdminUser,
   getAdminUserClients,
-  createAdminUserClient,
+  getAdminNumbers,
+  assignAdminNumberUser,
   connectAdminClient,
   getAdminClientQrShareLink
 } from '../services/api';
@@ -14,8 +15,9 @@ export default function AdminWhatsAppPage() {
   const [account, setAccount] = useState(null);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [name, setName] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [pool, setPool] = useState([]);
+  const [assignId, setAssignId] = useState('');
+  const [assigning, setAssigning] = useState(false);
   const [busyId, setBusyId] = useState('');
   const [qr, setQr] = useState(null);
   const [qrDismissed, setQrDismissed] = useState(false);
@@ -28,6 +30,12 @@ export default function AdminWhatsAppPage() {
       name: data.ownerName,
       email: data.ownerEmail
     });
+    try {
+      const poolRes = await getAdminNumbers();
+      setPool((poolRes.data.numbers || []).filter((item) =>
+        !(item.assignedUsers || []).some((assigned) => String(assigned._id) === String(userId))
+      ));
+    } catch (_) { /* assign list is optional */ }
     return data.clients || [];
   }, [userId]);
 
@@ -40,7 +48,6 @@ export default function AdminWhatsAppPage() {
           const { data } = await getAdminUser(userId);
           if (!cancelled) {
             setAccount(data.user);
-            setName(data.user?.name ? `${data.user.name} WhatsApp` : 'WhatsApp');
           }
         } catch (_) { /* clients payload still has owner name */ }
         await load();
@@ -66,25 +73,21 @@ export default function AdminWhatsAppPage() {
     if (ready) setQr({ name: ready.name, qr: ready.qrCode });
   }, [clients, qr, qrDismissed]);
 
-  const handleCreate = async () => {
-    const clientName = String(name || '').trim();
-    if (!clientName) {
-      toast.error('Client name is required');
+  const handleAssign = async () => {
+    if (!assignId) {
+      toast.error('Pick a number from the pool');
       return;
     }
-    setCreating(true);
+    setAssigning(true);
     try {
-      const { data } = await createAdminUserClient(userId, clientName);
-      toast.success(data.message || 'WhatsApp client created');
-      setName('');
+      const { data } = await assignAdminNumberUser(assignId, userId);
+      toast.success(data.message || 'Number assigned');
+      setAssignId('');
       await load();
-      if (data.qrShare?.pageUrl) {
-        window.open(data.qrShare.pageUrl, '_blank', 'noopener,noreferrer');
-      }
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to create WhatsApp client');
+      toast.error(err.response?.data?.error || 'Failed to assign number');
     } finally {
-      setCreating(false);
+      setAssigning(false);
     }
   };
 
@@ -114,31 +117,30 @@ export default function AdminWhatsAppPage() {
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <Link to="/admin/users" style={backLink}>Back to users</Link>
+      <Link to="/admin/users" style={backLink}>Back to clients</Link>
       <h2 style={{ margin: '12px 0 6px', color: '#0f172a', fontSize: 28 }}>WhatsApp / QR</h2>
       <p style={{ color: '#475569', fontSize: 15, margin: '0 0 24px', lineHeight: 1.5 }}>
         {account ? (
-          <>Create and scan a number for <strong>{account.name}</strong> ({account.email}).</>
-        ) : 'Create a WhatsApp client and share the QR page to scan.'}
+          <>Assigned numbers for <strong>{account.name}</strong> ({account.email}). Create new numbers on the Numbers page, then assign them here.</>
+        ) : 'Assign a pool number and share the QR page to scan.'}
       </p>
 
       <section style={card}>
         <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-          <input
-            placeholder="Client name, e.g. Main number"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleCreate();
-              }
-            }}
-            style={inputStyle}
-          />
-          <button type="button" onClick={handleCreate} disabled={creating} style={primaryBtn}>
-            {creating ? 'Creating...' : 'Create client'}
+          <select value={assignId} onChange={(e) => setAssignId(e.target.value)} style={inputStyle}>
+            <option value="">Assign a number...</option>
+            {pool.map((item) => (
+              <option key={item._id} value={item._id}>
+                {item.phone ? `+${item.phone}` : item.name} · {item.status}
+              </option>
+            ))}
+          </select>
+          <button type="button" onClick={handleAssign} disabled={assigning} style={primaryBtn}>
+            {assigning ? 'Assigning...' : 'Assign number'}
           </button>
+          <Link to="/admin/numbers" style={{ ...secondaryBtn, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
+            Open Numbers
+          </Link>
         </div>
       </section>
 
@@ -146,7 +148,7 @@ export default function AdminWhatsAppPage() {
         {loading ? (
           <div style={{ color: '#64748b' }}>Loading clients...</div>
         ) : clients.length === 0 ? (
-          <div style={{ color: '#64748b' }}>No WhatsApp clients yet. Create one above.</div>
+          <div style={{ color: '#64748b' }}>No WhatsApp assigned yet. Assign a pool number above.</div>
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             {clients.map((client) => (

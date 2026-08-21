@@ -2,11 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
-  updateUserBalance,
-  addUserBalance,
   toggleUserActive,
   createServiceAccount,
-  setUserSourceLock
+  setUserSourceLock,
+  getAdminNumbers,
+  assignAdminNumberUser,
+  updateAdminNumberBalance
 } from '../services/api';
 
 const fieldStyle = {
@@ -19,7 +20,7 @@ const fieldStyle = {
   boxSizing: 'border-box'
 };
 
-export default function AdminUserDrawer({ user, onClose, onRefresh, onOpenSources }) {
+export default function AdminUserDrawer({ user, onClose, onRefresh }) {
   const navigate = useNavigate();
   const [balanceMode, setBalanceMode] = useState('add');
   const [balanceInput, setBalanceInput] = useState('');
@@ -32,6 +33,10 @@ export default function AdminUserDrawer({ user, onClose, onRefresh, onOpenSource
     messageBalance: '0'
   });
   const [savingService, setSavingService] = useState(false);
+  const [poolNumbers, setPoolNumbers] = useState([]);
+  const [assignId, setAssignId] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  const [balanceNumberId, setBalanceNumberId] = useState('');
 
   useEffect(() => {
     const onKey = (event) => {
@@ -40,6 +45,22 @@ export default function AdminUserDrawer({ user, onClose, onRefresh, onOpenSource
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  useEffect(() => {
+    if (!user || user.parentUserId) return;
+    let cancelled = false;
+    getAdminNumbers()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setPoolNumbers((data.numbers || []).filter((item) =>
+          !(item.assignedUsers || []).some((assigned) => assigned._id === user._id)
+        ));
+        const first = (user.assignedNumbers || [])[0];
+        setBalanceNumberId(first?._id || '');
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user]);
 
   if (!user) return null;
 
@@ -57,14 +78,19 @@ export default function AdminUserDrawer({ user, onClose, onRefresh, onOpenSource
       toast.error('Enter a valid number');
       return;
     }
+    const numberId = balanceNumberId || (user.assignedNumbers || [])[0]?._id;
+    if (!numberId) {
+      toast.error('Assign a WhatsApp number first');
+      return;
+    }
     setSavingBalance(true);
     try {
       if (balanceMode === 'set') {
-        await updateUserBalance(user._id, val);
-        toast.success(`Balance set to ${val}`);
+        await updateAdminNumberBalance(numberId, { balance: val });
+        toast.success(`Number balance set to ${val}`);
       } else {
-        await addUserBalance(user._id, val);
-        toast.success(`Added ${val} messages`);
+        await updateAdminNumberBalance(numberId, { amount: val });
+        toast.success(`Added ${val} messages to this number`);
       }
       setBalanceInput('');
       onRefresh();
@@ -72,6 +98,34 @@ export default function AdminUserDrawer({ user, onClose, onRefresh, onOpenSource
       toast.error(err.response?.data?.error || 'Failed to update balance');
     } finally {
       setSavingBalance(false);
+    }
+  };
+
+  const handleAssignNumber = async () => {
+    if (!assignId) {
+      toast.error('Pick a number from the pool');
+      return;
+    }
+    setAssigning(true);
+    try {
+      await assignAdminNumberUser(assignId, user._id);
+      toast.success('Number assigned');
+      setAssignId('');
+      onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to assign number');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleUnassignNumber = async (numberId) => {
+    try {
+      await assignAdminNumberUser(numberId, user._id, 'remove');
+      toast.success('Number unassigned from this user');
+      onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to unassign');
     }
   };
 
@@ -87,8 +141,8 @@ export default function AdminUserDrawer({ user, onClose, onRefresh, onOpenSource
 
   const handleCreateService = async () => {
     const source = String(serviceForm.source || '').trim().toLowerCase();
-    if (!serviceForm.name || !serviceForm.email || !serviceForm.password || !source) {
-      toast.error('Name, email, password, and source are required');
+    if (!serviceForm.name || !serviceForm.email || !serviceForm.password) {
+      toast.error('Name, email, and password are required');
       return;
     }
     setSavingService(true);
@@ -149,7 +203,7 @@ export default function AdminUserDrawer({ user, onClose, onRefresh, onOpenSource
               {isOwner ? (
                 <button type="button" onClick={() => go(`/admin/users/${user._id}/whatsapp`)} style={pageBtn}>
                   WhatsApp / QR
-                  <span style={pageMeta}>Create client and scan</span>
+                  <span style={pageMeta}>Assigned numbers and scan</span>
                 </button>
               ) : null}
             </div>
@@ -162,34 +216,74 @@ export default function AdminUserDrawer({ user, onClose, onRefresh, onOpenSource
             <button type="button" onClick={handleToggle} style={user.isActive ? dangerBtn : primaryBtn}>
               {user.isActive ? 'Disable account' : 'Enable account'}
             </button>
-            {isOwner ? (
-              <button type="button" onClick={() => onOpenSources(user)} style={ghostBtn}>Edit sources</button>
-            ) : null}
           </div>
 
           {isService ? (
             <div style={{ marginBottom: 16 }}>
-              <div style={hint}>This login {user.source ? `is locked to ${user.source}` : 'can switch sources'}.</div>
+              <div style={hint}>
+                This login {user.source ? `tags sends as ${user.source}` : 'does not lock a source tag'}.
+              </div>
               {user.source ? (
                 <button type="button" onClick={() => handleLock(null)} style={{ ...ghostBtn, marginTop: 8 }}>
-                  Allow switch
+                  Clear source lock
                 </button>
-              ) : (user.enabledSources || []).length ? (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                  {(user.enabledSources || []).map((name) => (
-                    <button key={name} type="button" onClick={() => handleLock(name)} style={ghostBtn}>
-                      Lock {name}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ ...hint, marginTop: 8 }}>Enable sources on the owner first.</div>
-              )}
+              ) : null}
             </div>
+          ) : null}
+
+          {isOwner ? (
+            <>
+          <h4 style={heading}>Assigned numbers</h4>
+          {(user.assignedNumbers || []).length ? (
+            <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+              {(user.assignedNumbers || []).map((item) => (
+                <div key={item._id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{item.phone || item.name || item._id}</div>
+                    <div style={hint}>Balance {item.messageBalance ?? 0}</div>
+                  </div>
+                  <button type="button" onClick={() => handleUnassignNumber(item._id)} style={ghostBtn}>Unassign</button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={hint}>No number assigned yet.</p>
+          )}
+          {poolNumbers.length ? (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+              <select value={assignId} onChange={(e) => setAssignId(e.target.value)} style={fieldStyle}>
+                <option value="">Assign a number...</option>
+                {poolNumbers.map((item) => (
+                  <option key={item._id} value={item._id}>
+                    {item.phone ? `+${item.phone}` : item.name} · {item.status}
+                  </option>
+                ))}
+              </select>
+              <button type="button" onClick={handleAssignNumber} disabled={assigning} style={primaryBtn}>
+                {assigning ? 'Assigning...' : 'Assign number'}
+              </button>
+            </div>
+          ) : (
+            <p style={hint}>No more numbers to assign. Create another on the Numbers page, or this user already has every number.</p>
+          )}
+            </>
           ) : null}
 
           <h4 style={heading}>Message balance</h4>
           <div style={{ fontSize: 28, fontWeight: 700, color: '#0f766e', margin: '0 0 12px' }}>{user.messageBalance}</div>
+          {(user.assignedNumbers || []).length > 1 ? (
+            <select
+              value={balanceNumberId}
+              onChange={(e) => setBalanceNumberId(e.target.value)}
+              style={{ ...fieldStyle, marginBottom: 10 }}
+            >
+              {(user.assignedNumbers || []).map((item) => (
+                <option key={item._id} value={item._id}>
+                  {item.phone || item.name} · {item.messageBalance ?? 0} left
+                </option>
+              ))}
+            </select>
+          ) : null}
           <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
             <button
               type="button"
@@ -232,27 +326,9 @@ export default function AdminUserDrawer({ user, onClose, onRefresh, onOpenSource
         {isOwner ? (
           <section style={section}>
             <h4 style={heading}>Add service login</h4>
-            <p style={hint}>Creates a source email that shares this owner WhatsApp.</p>
+            <p style={hint}>Creates a login that shares this owner WhatsApp. Source is optional for stats tagging.</p>
             <div style={{ display: 'grid', gap: 10 }}>
-              <input placeholder="Source name" value={serviceForm.source} onChange={(e) => setServiceForm((p) => ({ ...p, source: e.target.value }))} style={fieldStyle} />
-              {(user.enabledSources || []).length ? (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {(user.enabledSources || []).map((name) => (
-                    <button
-                      key={name}
-                      type="button"
-                      onClick={() => setServiceForm((p) => ({ ...p, source: name }))}
-                      style={{
-                        ...chipBtn,
-                        background: serviceForm.source === name ? '#0f766e' : '#fff',
-                        color: serviceForm.source === name ? '#fff' : '#334155'
-                      }}
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+              <input placeholder="Source tag (optional)" value={serviceForm.source} onChange={(e) => setServiceForm((p) => ({ ...p, source: e.target.value }))} style={fieldStyle} />
               <input placeholder="Display name" value={serviceForm.name} onChange={(e) => setServiceForm((p) => ({ ...p, name: e.target.value }))} style={fieldStyle} />
               <input type="email" placeholder="Login email" value={serviceForm.email} onChange={(e) => setServiceForm((p) => ({ ...p, email: e.target.value }))} style={fieldStyle} />
               <input type="password" placeholder="Password (min 6 characters)" value={serviceForm.password} onChange={(e) => setServiceForm((p) => ({ ...p, password: e.target.value }))} style={fieldStyle} />

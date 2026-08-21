@@ -66,11 +66,10 @@ export default function AdminPlansPage() {
 
   return (
     <div>
-      <h2 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Subscription plans</h2>
+      <h2 style={{ margin: '0 0 8px', color: '#1a1a2e' }}>Plans</h2>
       <p style={{ color: '#666', margin: '0 0 24px', fontSize: 14, maxWidth: 720 }}>
-        These numbers control every client. Mini / Medium / Max can be renamed and their
-        message quota and source slots can be changed here. Assign a plan to an owner on
-        Manage Users, then enable the real sources used on that owner.
+        Mini / Medium / Max live on the phone number. Rename them and change message quota
+        here, then assign a plan to a number from Phone numbers.
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>

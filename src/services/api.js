@@ -122,8 +122,6 @@ export const createServiceAccount = (parentId, data) =>
 export const getAdminPlans = () => api.get('/admin/plans');
 export const updateAdminPlan = (id, data) => api.patch(`/admin/plans/${id}`, data);
 export const assignUserPlan = (id, data) => api.patch(`/admin/users/${id}/plan`, data);
-export const updateUserSources = (id, sources, remove = []) =>
-  api.patch(`/admin/users/${id}/sources`, { sources, remove });
 export const setUserSourceLock = (id, source) => api.patch(`/admin/users/${id}/source-lock`, { source });
 export const getAdminUserClients = (userId) => api.get(`/admin/users/${userId}/clients`);
 export const createAdminUserClient = (userId, name) => api.post(`/admin/users/${userId}/clients`, { name });
@@ -131,6 +129,13 @@ export const connectAdminClient = (id) => api.post(`/admin/clients/${id}/connect
 export const getAdminClientQrShareLink = (id) => api.get(`/admin/clients/${id}/qr-share-link`);
 export const getAdminUserCredentials = (userId) => api.get(`/admin/users/${userId}/credentials`);
 export const regenerateAdminUserToken = (userId) => api.post(`/admin/users/${userId}/credentials/regenerate`);
+export const createAdminUser = (data) => api.post('/admin/users', data);
+export const getAdminNumbers = () => api.get('/admin/numbers');
+export const createAdminNumber = (name) => api.post('/admin/numbers', { name });
+export const assignAdminNumberPlan = (id, data) => api.patch(`/admin/numbers/${id}/plan`, data);
+export const assignAdminNumberUser = (id, userId, action) =>
+  api.patch(`/admin/numbers/${id}/assign`, { userId, action });
+export const updateAdminNumberBalance = (id, data) => api.patch(`/admin/numbers/${id}/balance`, data);
 export const getClientPlans = () => api.get('/auth/plans');
 export const getSubscription = () => api.get('/auth/subscription');
 export const requestSubscription = (planId) => api.post('/auth/subscription/request', { planId });

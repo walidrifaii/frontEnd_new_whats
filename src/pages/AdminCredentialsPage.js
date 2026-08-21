@@ -174,14 +174,14 @@ export default function AdminCredentialsPage() {
     return (
       <div>
         <p style={{ color: '#64748b' }}>Could not load credentials for this account.</p>
-        <Link to="/admin/users" style={backLink}>Back to users</Link>
+        <Link to="/admin/users" style={backLink}>Back to clients</Link>
       </div>
     );
   }
 
   return (
     <div style={{ maxWidth: 860 }}>
-      <Link to="/admin/users" style={backLink}>Back to users</Link>
+      <Link to="/admin/users" style={backLink}>Back to clients</Link>
       <h2 style={{ margin: '12px 0 6px', color: '#0f172a', fontSize: 28, lineHeight: 1.2 }}>
         Server credentials
       </h2>
@@ -195,14 +195,18 @@ export default function AdminCredentialsPage() {
         <div style={{ color: '#475569', fontSize: 14, marginTop: 4 }}>{data.account.email}</div>
         {data.sharesOwnerWhatsApp ? (
           <div style={{ marginTop: 10, fontSize: 13, color: '#166534', background: '#dcfce7', padding: '8px 12px', borderRadius: 8 }}>
-            Token and Client ID are from the main owner ({data.owner?.email}). Send source <strong>{data.source || 'this source'}</strong> so billing uses this login’s plan.
+            Token and Client ID are from the main owner ({data.owner?.email}). Source is optional — send it only if you want stats split by Laravel app.
           </div>
         ) : null}
         {data.source ? (
           <div style={{ marginTop: 8, fontSize: 13, color: '#1e293b' }}>
-            Locked source: <strong>{data.source}</strong>
+            Locked source: <strong>{data.source}</strong> (optional on send; used for stats)
           </div>
-        ) : null}
+        ) : (
+          <div style={{ marginTop: 8, fontSize: 13, color: '#64748b' }}>
+            WHATSAPP_NODE_SOURCE is optional. Billing uses the assigned number’s plan.
+          </div>
+        )}
       </section>
 
       <section style={card}>
@@ -242,7 +246,7 @@ export default function AdminCredentialsPage() {
         </p>
         {data.clients.length === 0 ? (
           <div style={{ color: '#64748b', fontSize: 14 }}>
-            No WhatsApp client on this owner yet. Create one from Manage Users with WhatsApp / QR.
+            No WhatsApp number assigned to this owner yet. Assign one from Numbers.
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>

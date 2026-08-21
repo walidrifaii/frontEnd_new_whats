@@ -14,6 +14,7 @@ import LogsPage from './pages/LogsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminPlansPage from './pages/AdminPlansPage';
+import AdminNumbersPage from './pages/AdminNumbersPage';
 import AdminCredentialsPage from './pages/AdminCredentialsPage';
 import AdminWhatsAppPage from './pages/AdminWhatsAppPage';
 import StatsPage from './pages/StatsPage';
@@ -80,6 +81,7 @@ function App() {
           <Route path="logs" element={<LogsPage />} />
           <Route path="admin" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />
           <Route path="admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
+          <Route path="admin/numbers" element={<AdminRoute><AdminNumbersPage /></AdminRoute>} />
           <Route path="admin/users/:userId/credentials" element={<AdminRoute><AdminCredentialsPage /></AdminRoute>} />
           <Route path="admin/users/:userId/whatsapp" element={<AdminRoute><AdminWhatsAppPage /></AdminRoute>} />
           <Route path="admin/plans" element={<AdminRoute><AdminPlansPage /></AdminRoute>} />

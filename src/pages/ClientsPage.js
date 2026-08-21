@@ -2,10 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import {
   getClients,
-  createClient,
   connectClient,
   disconnectClient,
-  deleteClient,
   getClientQrShareLink
 } from '../services/api';
 import { useSocket } from '../utils/socket';
@@ -18,8 +16,6 @@ const STATUS_COLORS = {
 export default function ClientsPage() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newName, setNewName] = useState('');
-  const [creating, setCreating] = useState(false);
   const [qrModal, setQrModal] = useState(null); // { clientId, qr }
   const [dismissedQrKeys, setDismissedQrKeys] = useState({});
   const [sharingClientId, setSharingClientId] = useState(null);
@@ -124,26 +120,6 @@ export default function ClientsPage() {
     }
   });
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    setCreating(true);
-    try {
-      const { data } = await createClient(newName.trim());
-      setClients(prev => [data.client, ...prev]);
-      setNewName('');
-      toast.success('Client created!');
-    } catch (err) {
-      if (isGatewayOrNetworkIssue(err)) {
-        toast.error('Backend is waking up. Wait a few seconds, then create again.');
-      } else {
-        toast.error(err.response?.data?.error || 'Failed to create client');
-      }
-    } finally {
-      setCreating(false);
-    }
-  };
-
   const handleConnect = async (client) => {
     try {
       await connectClient(client._id);
@@ -162,17 +138,6 @@ export default function ClientsPage() {
       toast.success('Disconnected');
     } catch (err) {
       toast.error('Failed to disconnect');
-    }
-  };
-
-  const handleDelete = async (client) => {
-    if (!window.confirm('Delete this client?')) return;
-    try {
-      await deleteClient(client._id);
-      setClients(prev => prev.filter(c => c._id !== client._id));
-      toast.success('Client deleted');
-    } catch (err) {
-      toast.error('Failed to delete client');
     }
   };
 
@@ -224,19 +189,12 @@ export default function ClientsPage() {
     <div>
       <h2 style={{ margin: '0 0 24px', color: '#1a1a2e' }}>📱 WhatsApp Clients</h2>
 
-      {/* Create form */}
+      {/* Assigned numbers only — super admin adds numbers on /admin/numbers */}
       <div style={{ background: '#fff', borderRadius: 10, padding: 24, marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-        <h3 style={{ margin: '0 0 16px' }}>Add New Client</h3>
-        <form onSubmit={handleCreate} style={{ display: 'flex', gap: 12 }}>
-          <input
-            value={newName} onChange={e => setNewName(e.target.value)}
-            placeholder="e.g. Marketing Team, Sales Bot"
-            style={{ flex: 1, padding: '10px 14px', borderRadius: 6, border: '1px solid #ddd', fontSize: 14 }}
-          />
-          <button type="submit" disabled={creating} style={btnGreen}>
-            {creating ? 'Creating...' : '+ Add Client'}
-          </button>
-        </form>
+        <h3 style={{ margin: '0 0 8px' }}>Assigned WhatsApp</h3>
+        <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
+          Super admin creates numbers and assigns them to your account. You can scan QR if a session needs connecting.
+        </p>
       </div>
 
       {/* Client list */}
@@ -286,16 +244,13 @@ export default function ClientsPage() {
                   {client.status === 'initializing' && (
                     <span style={{ fontSize: 13, color: '#007aff' }}>⏳ Initializing...</span>
                   )}
-                  <button onClick={() => handleDelete(client)} style={{ ...btnRed, padding: '8px 12px' }}>
-                    🗑
-                  </button>
                 </div>
               </div>
             </div>
           ))}
           {clients.length === 0 && (
             <div style={{ textAlign: 'center', color: '#999', padding: 40 }}>
-              No clients yet. Add one above to get started.
+              No WhatsApp number assigned yet. Ask super admin to assign one.
             </div>
           )}
         </div>

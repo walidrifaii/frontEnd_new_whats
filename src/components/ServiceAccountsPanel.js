@@ -70,8 +70,8 @@ export default function ServiceAccountsPanel() {
     }}>
       <h3 style={{ margin: '0 0 8px', color: '#333' }}>Service logins (same WhatsApp)</h3>
       <p style={{ color: '#666', fontSize: 14, margin: '0 0 20px' }}>
-        Add an email, password, and the real source name used when sending.
-        That person signs in at <strong>/stats-login</strong> and only sees that source&apos;s messages.
+        Add an email and password. They share this WhatsApp. Source tag is optional for stats.
+        That person signs in at <strong>/stats-login</strong>.
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
@@ -100,8 +100,7 @@ export default function ServiceAccountsPanel() {
           style={fieldStyle}
         />
         <input
-          required
-          placeholder="Source name"
+          placeholder="Source tag (optional)"
           value={form.source}
           onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))}
           style={fieldStyle}
