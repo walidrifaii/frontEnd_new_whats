@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import ServiceSwitchButtons from './ServiceSwitchButtons';
+import { switchCurrentApp } from '../services/api';
 
 const IconPhone = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -56,17 +57,30 @@ export default function Layout() {
   const isAdmin = user?.isAdmin || user?.role === 'admin';
   const isServiceAccount = Boolean(user?.isServiceAccount || user?.parentUserId);
   const enabledSources = user?.subscription?.enabledSources || [];
-  const canSwitchService = false;
+  const appServices = (user?.subscription?.apps || [])
+    .filter((item) => item.isActive)
+    .map((item) => item.service);
+  const switchOptions = [...new Set([...enabledSources, ...appServices].filter(Boolean))];
+  const canSwitchService = Boolean(user?.subscription?.allowSourceSwitch)
+    && !isServiceAccount
+    && switchOptions.length >= 2;
+
+  const handleSwitchService = (source) => {
+    setStatsSource(source);
+    if (source) {
+      switchCurrentApp({ source }).catch(() => {});
+    }
+  };
 
   useEffect(() => {
-    setStatsSourceOptions(enabledSources);
-    if (statsSource && enabledSources.length && !enabledSources.includes(statsSource)) {
+    setStatsSourceOptions(switchOptions);
+    if (statsSource && switchOptions.length && !switchOptions.includes(statsSource)) {
       setStatsSource('');
     }
     if (!canSwitchService && statsSource) {
       setStatsSource('');
     }
-  }, [canSwitchService, enabledSources.join(','), statsSource, setStatsSource, setStatsSourceOptions]);
+  }, [canSwitchService, switchOptions.join(','), statsSource, setStatsSource, setStatsSourceOptions]);
 
   const navItems = isServiceAccount
     ? [
@@ -147,7 +161,7 @@ export default function Layout() {
                   dark
                   value={statsSource}
                   options={statsSourceOptions}
-                  onChange={setStatsSource}
+                  onChange={handleSwitchService}
                 />
               </div>
             ) : null}
@@ -211,7 +225,7 @@ export default function Layout() {
             <ServiceSwitchButtons
               value={statsSource}
               options={statsSourceOptions}
-              onChange={setStatsSource}
+              onChange={handleSwitchService}
             />
           </div>
         ) : null}

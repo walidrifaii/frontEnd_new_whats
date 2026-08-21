@@ -73,6 +73,7 @@ export const createOwnerServiceAccount = (data) => api.post('/auth/service-accou
 export const adminLogin = (email, password) => api.post('/auth/admin-login', { email, password });
 export const register = (name, email, password) => api.post('/auth/register', { name, email, password });
 export const getMe = () => api.get('/auth/me');
+export const switchCurrentApp = (data) => api.patch('/auth/current-app', data);
 
 // Clients
 export const getClients = () => api.get('/clients');
